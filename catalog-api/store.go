@@ -43,19 +43,35 @@ func newDefaultID(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, idCounter.Add(1))
 }
 
+// bidIncrementCents is the flat amount proxy bidding settles one bid above
+// the second-highest standing ceiling. A real marketplace would use a
+// price-tiered schedule; a flat increment keeps this demo's resolution
+// predictable and easy to reason about.
+const bidIncrementCents = 100
+
 // ListingFilter narrows ListListings. A zero-value field matches any listing.
 type ListingFilter struct {
 	Status   fixtures.ListingStatus
 	SellerID string
 }
 
+// autoBidCeiling is a buyer's standing willingness to pay for a listing, plus
+// the order in which it was first registered -- used to break ties the way a
+// real auction would, in favor of whoever registered first.
+type autoBidCeiling struct {
+	maxCents int64
+	seq      int64
+}
+
 // Store is an in-memory, thread-safe catalog of listings and bids.
 type Store struct {
-	mu       sync.Mutex
-	listings map[string]fixtures.Listing
-	bids     map[string][]fixtures.Bid // keyed by listing ID
-	newID    func(prefix string) string
-	now      func() time.Time
+	mu             sync.Mutex
+	listings       map[string]fixtures.Listing
+	bids           map[string][]fixtures.Bid            // keyed by listing ID
+	autoBids       map[string]map[string]autoBidCeiling // listingID -> buyerID -> ceiling
+	nextCeilingSeq int64
+	newID          func(prefix string) string
+	now            func() time.Time
 }
 
 // NewStore returns a Store seeded with the given listings and bids.
@@ -78,6 +94,7 @@ func newStoreWithIDFunc(
 	s := &Store{
 		listings: make(map[string]fixtures.Listing, len(listings)),
 		bids:     make(map[string][]fixtures.Bid),
+		autoBids: make(map[string]map[string]autoBidCeiling),
 		newID:    newID,
 		now:      time.Now,
 	}
@@ -256,9 +273,135 @@ func (s *Store) PlaceBid(listingID, buyerID string, amountCents int64) (fixtures
 	}
 	s.bids[listingID] = append(s.bids[listingID], bid)
 	l.CurrentBidCents = amountCents
-	s.listings[listingID] = l
+
+	// A manual bid is also a ceiling of exactly its own amount, so a
+	// stronger standing auto-bid ceiling from another buyer immediately
+	// outbids it via resolveProxyBidding below.
+	s.registerCeiling(listingID, buyerID, amountCents)
+	s.listings[listingID] = s.resolveProxyBidding(l)
 
 	return bid, nil
+}
+
+// registerCeiling records buyerID's willingness to pay up to maxCents for
+// listingID, never lowering a previously registered ceiling. A buyer's first
+// registration fixes their tie-break priority (registerCeiling does not
+// reset it on a later raise). Must be called with s.mu held.
+func (s *Store) registerCeiling(listingID, buyerID string, maxCents int64) {
+	if s.autoBids[listingID] == nil {
+		s.autoBids[listingID] = map[string]autoBidCeiling{}
+	}
+	existing, ok := s.autoBids[listingID][buyerID]
+	if ok && maxCents <= existing.maxCents {
+		return
+	}
+	seq := existing.seq
+	if !ok {
+		s.nextCeilingSeq++
+		seq = s.nextCeilingSeq
+	}
+	s.autoBids[listingID][buyerID] = autoBidCeiling{maxCents: maxCents, seq: seq}
+}
+
+// resolveProxyBidding recomputes a listing's current price from every
+// registered ceiling (a standing auto-bid max from SetAutoBidMax, or a
+// buyer's own manual bid amount, which registerCeiling also records as that
+// buyer's ceiling). Classic proxy bidding: the price settles at one
+// bidIncrementCents above the second-highest ceiling, capped at the top
+// ceiling, or at the listing's starting price when only one ceiling is
+// registered (nobody is pushing the leader yet); ties on the top ceiling go
+// to whichever buyer registered first. No ceiling below the starting price
+// can win the auction at all. Never lowers the current price. When the price
+// changes, an auto-generated Bid is recorded for the new leader. Must be
+// called with s.mu held.
+func (s *Store) resolveProxyBidding(l fixtures.Listing) fixtures.Listing {
+	raw := s.autoBids[l.ID]
+	if len(raw) == 0 {
+		return l
+	}
+
+	type bidder struct {
+		buyerID  string
+		maxCents int64
+		seq      int64
+	}
+	entrants := make([]bidder, 0, len(raw))
+	for buyerID, c := range raw {
+		entrants = append(entrants, bidder{buyerID: buyerID, maxCents: c.maxCents, seq: c.seq})
+	}
+	sort.Slice(entrants, func(i, j int) bool {
+		if entrants[i].maxCents != entrants[j].maxCents {
+			return entrants[i].maxCents > entrants[j].maxCents
+		}
+		return entrants[i].seq < entrants[j].seq
+	})
+
+	top := entrants[0]
+	if top.maxCents < l.PriceCents {
+		// No registered ceiling can even meet the starting price yet.
+		return l
+	}
+
+	var secondCeiling int64
+	if len(entrants) > 1 {
+		secondCeiling = entrants[1].maxCents
+	}
+
+	price := l.PriceCents
+	if floor := secondCeiling + bidIncrementCents; floor > price {
+		price = floor
+	}
+	if price > top.maxCents {
+		price = top.maxCents
+	}
+	if price <= l.CurrentBidCents {
+		return l
+	}
+
+	l.CurrentBidCents = price
+	s.bids[l.ID] = append(s.bids[l.ID], fixtures.Bid{
+		ID:              s.newID("bid"),
+		ListingID:       l.ID,
+		BuyerID:         top.buyerID,
+		AmountCents:     price,
+		IsAutoBid:       true,
+		MaxAutoBidCents: top.maxCents,
+		PlacedAt:        s.now(),
+	})
+	s.listings[l.ID] = l
+	return l
+}
+
+// SetAutoBidMax registers or raises a buyer's standing proxy-bid ceiling on
+// an open auction, then immediately resolves bidding against every other
+// registered ceiling. See resolveProxyBidding.
+func (s *Store) SetAutoBidMax(listingID, buyerID string, maxCents int64) (fixtures.Listing, error) {
+	if buyerID == "" {
+		return fixtures.Listing{}, fmt.Errorf("set auto-bid max on %s: %w", listingID, ErrBuyerIDRequired)
+	}
+	if maxCents <= 0 {
+		return fixtures.Listing{}, fmt.Errorf("set auto-bid max on %s: %w", listingID, ErrInvalidPrice)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	l, ok := s.listings[listingID]
+	if !ok {
+		return fixtures.Listing{}, fmt.Errorf("set auto-bid max on %s: %w", listingID, ErrListingNotFound)
+	}
+	l = s.closeIfExpired(l)
+	if l.Type != fixtures.ListingTypeAuction {
+		return fixtures.Listing{}, fmt.Errorf("set auto-bid max on %s: %w", listingID, ErrListingNotAuction)
+	}
+	if l.Status != fixtures.ListingStatusActiveAuction {
+		return fixtures.Listing{}, fmt.Errorf("set auto-bid max on %s: %w", listingID, ErrAuctionClosed)
+	}
+
+	s.registerCeiling(listingID, buyerID, maxCents)
+	l = s.resolveProxyBidding(l)
+	s.listings[listingID] = l
+	return copyListing(l), nil
 }
 
 // WithdrawBid removes a specific bid from a listing by its ID. The listing's
@@ -288,9 +431,15 @@ func (s *Store) WithdrawBid(listingID, bidID string) error {
 	if removeIdx == -1 {
 		return fmt.Errorf("withdraw bid %s on %s: %w", bidID, listingID, ErrBidNotFound)
 	}
+	withdrawnBuyer := bids[removeIdx].BuyerID
 
 	remaining := append(bids[:removeIdx:removeIdx], bids[removeIdx+1:]...)
 	s.bids[listingID] = remaining
+
+	// Withdrawing takes the buyer out of this auction entirely. Without this,
+	// a stale standing ceiling could silently resurrect them as leader on the
+	// very next bid from someone else, with no new action on their part.
+	delete(s.autoBids[listingID], withdrawnBuyer)
 
 	var highest int64
 	for _, b := range remaining {
@@ -299,7 +448,7 @@ func (s *Store) WithdrawBid(listingID, bidID string) error {
 		}
 	}
 	l.CurrentBidCents = highest
-	s.listings[listingID] = l
+	s.listings[listingID] = s.resolveProxyBidding(l)
 
 	return nil
 }

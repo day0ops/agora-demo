@@ -447,3 +447,291 @@ func TestNewDefaultIDNeverCollidesUnderConcurrency(t *testing.T) {
 		seen[id] = true
 	}
 }
+
+func TestSetAutoBidMaxSingleBuyerLeadsAtStartingPrice(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	l, err := s.SetAutoBidMax("l1", "buyer-1", 6000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 1000 {
+		t.Fatalf("expected a lone ceiling to only meet the starting price, got %d", l.CurrentBidCents)
+	}
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(history) != 1 || history[0].BuyerID != "buyer-1" || !history[0].IsAutoBid {
+		t.Fatalf("expected one auto-generated bid for buyer-1, got %+v", history)
+	}
+}
+
+func TestSetAutoBidMaxTwoBuyersResolveAboveSecondCeiling(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.SetAutoBidMax("l1", "buyer-1", 6000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	l, err := s.SetAutoBidMax("l1", "buyer-2", 5000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantPrice := int64(5000 + bidIncrementCents)
+	if l.CurrentBidCents != wantPrice {
+		t.Fatalf("expected price %d (second ceiling + increment), got %d", wantPrice, l.CurrentBidCents)
+	}
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	last := history[len(history)-1]
+	if last.BuyerID != "buyer-1" || last.AmountCents != wantPrice || last.MaxAutoBidCents != 6000 {
+		t.Fatalf("expected buyer-1 to hold the lead at %d with max 6000, got %+v", wantPrice, last)
+	}
+}
+
+func TestSetAutoBidMaxCappedAtOwnCeiling(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.SetAutoBidMax("l1", "buyer-1", 1200); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	l, err := s.SetAutoBidMax("l1", "buyer-2", 5000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// buyer-1's ceiling (1200) is below what buyer-2's ceiling would otherwise
+	// push the price to (1200+increment would exceed 1200), so buyer-2 wins
+	// outright at one increment above buyer-1's ceiling, capped by nothing
+	// since buyer-2's own ceiling (5000) is far higher.
+	if l.CurrentBidCents <= 1200 {
+		t.Fatalf("expected buyer-2 to take the lead above buyer-1's 1200 ceiling, got %d", l.CurrentBidCents)
+	}
+}
+
+func TestSetAutoBidMaxDoesNotLowerAStrongerExistingPrice(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.PlaceBid("l1", "buyer-3", 8000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	l, err := s.SetAutoBidMax("l1", "buyer-1", 6000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 8000 {
+		t.Fatalf("expected buyer-3's manual 8000 bid to stand against a weaker 6000 ceiling, got %d", l.CurrentBidCents)
+	}
+}
+
+func TestPlaceBidGetsImmediatelyOutbidByAStrongerStandingCeiling(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.SetAutoBidMax("l1", "buyer-1", 6000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	bid, err := s.PlaceBid("l1", "buyer-2", 2000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bid.AmountCents != 2000 {
+		t.Fatalf("expected the recorded manual bid to be exactly 2000, got %d", bid.AmountCents)
+	}
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantPrice := int64(2000 + bidIncrementCents)
+	if l.CurrentBidCents != wantPrice {
+		t.Fatalf("expected buyer-1's standing ceiling to immediately outbid to %d, got %d", wantPrice, l.CurrentBidCents)
+	}
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	last := history[len(history)-1]
+	if last.BuyerID != "buyer-1" || !last.IsAutoBid {
+		t.Fatalf("expected the final bid to be buyer-1's auto-bid, got %+v", last)
+	}
+}
+
+func TestSetAutoBidMaxRejectsNonPositiveMax(t *testing.T) {
+	s := testStore(t)
+	_, err := s.SetAutoBidMax("l1", "buyer-1", 0)
+	if !errors.Is(err, ErrInvalidPrice) {
+		t.Fatalf("expected ErrInvalidPrice, got %v", err)
+	}
+}
+
+func TestSetAutoBidMaxRequiresBuyerID(t *testing.T) {
+	s := testStore(t)
+	_, err := s.SetAutoBidMax("l1", "", 1000)
+	if !errors.Is(err, ErrBuyerIDRequired) {
+		t.Fatalf("expected ErrBuyerIDRequired, got %v", err)
+	}
+}
+
+func TestSetAutoBidMaxRejectsOnClosedAuction(t *testing.T) {
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusSold},
+	}, nil, nil)
+
+	_, err := s.SetAutoBidMax("l1", "buyer-1", 1000)
+	if !errors.Is(err, ErrAuctionClosed) {
+		t.Fatalf("expected ErrAuctionClosed, got %v", err)
+	}
+}
+
+func TestSetAutoBidMaxRejectsNonAuction(t *testing.T) {
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow},
+	}, nil, nil)
+
+	_, err := s.SetAutoBidMax("l1", "buyer-1", 1000)
+	if !errors.Is(err, ErrListingNotAuction) {
+		t.Fatalf("expected ErrListingNotAuction, got %v", err)
+	}
+}
+
+func TestResolveProxyBiddingNeverSettlesBelowStartingPrice(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	// A lone ceiling below the starting price must not win the auction at
+	// all -- it must not drag the price down to meet it.
+	l, err := s.SetAutoBidMax("l1", "buyer-1", 500)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 0 {
+		t.Fatalf("expected a sub-starting-price ceiling to leave the listing unbid, got CurrentBidCents=%d", l.CurrentBidCents)
+	}
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(history) != 0 {
+		t.Fatalf("expected no bid recorded for a ceiling below the starting price, got %+v", history)
+	}
+}
+
+func TestResolveProxyBiddingNeverSettlesBelowStartingPriceWithTwoLowCeilings(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.SetAutoBidMax("l1", "buyer-2", 400); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	l, err := s.SetAutoBidMax("l1", "buyer-1", 600)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 0 {
+		t.Fatalf("expected two ceilings both below the starting price to leave the listing unbid, got %d", l.CurrentBidCents)
+	}
+}
+
+func TestWithdrawBidClearsTheBuyersStandingCeiling(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.SetAutoBidMax("l1", "buyer-1", 6000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	bid, err := s.PlaceBid("l1", "buyer-2", 2000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// This resolves to an auto-bid for buyer-1 at 2100; find and withdraw it.
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var buyer1AutoBidID string
+	for _, h := range history {
+		if h.BuyerID == "buyer-1" && h.IsAutoBid {
+			buyer1AutoBidID = h.ID
+		}
+	}
+	if buyer1AutoBidID == "" {
+		t.Fatal("expected to find buyer-1's auto-generated bid")
+	}
+	if err := s.WithdrawBid("l1", buyer1AutoBidID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != bid.AmountCents {
+		t.Fatalf("expected the price to revert to buyer-2's manual bid %d, got %d", bid.AmountCents, l.CurrentBidCents)
+	}
+
+	// A fresh bid from a third party must not resurrect buyer-1's withdrawn
+	// ceiling -- they withdrew, they are out until they act again.
+	if _, err := s.PlaceBid("l1", "buyer-3", 2500); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	l, err = s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 2500 {
+		t.Fatalf("expected buyer-3's manual bid of 2500 to stand (buyer-1's ceiling must stay cleared), got %d", l.CurrentBidCents)
+	}
+}
+
+func TestSetAutoBidMaxTieBreaksByRegistrationOrder(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.SetAutoBidMax("l1", "buyer-1", 5000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := s.SetAutoBidMax("l1", "buyer-2", 5000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	last := history[len(history)-1]
+	if last.BuyerID != "buyer-1" {
+		t.Fatalf("expected the earlier-registered equal ceiling (buyer-1) to win the tie, got %s", last.BuyerID)
+	}
+}

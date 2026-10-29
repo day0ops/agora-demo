@@ -200,3 +200,65 @@ func TestHandlePlaceBidConflict(t *testing.T) {
 		t.Fatalf("expected 409 for a bid below the current price, got %d", resp.StatusCode)
 	}
 }
+
+func TestHandleSetAutoBidMax(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	store := newStoreWithIDFunc(
+		[]fixtures.Listing{
+			{
+				ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+				PriceCents: 1000, CurrentBidCents: 0, AuctionEndsAt: &end,
+			},
+		},
+		nil,
+		func(prefix string) string { return prefix + "-generated" },
+	)
+	srv := httptest.NewServer(NewMux(store))
+	t.Cleanup(srv.Close)
+
+	body, err := json.Marshal(setAutoBidMaxRequest{BuyerID: "buyer-1", MaxCents: 5000})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/listings/l1/autobid", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /listings/l1/autobid: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	l := decodeJSON[fixtures.Listing](t, resp)
+	if l.CurrentBidCents != 1000 {
+		t.Fatalf("expected the lone ceiling to settle at the starting price 1000, got %d", l.CurrentBidCents)
+	}
+
+	historyResp, err := http.Get(srv.URL + "/listings/l1/bids")
+	if err != nil {
+		t.Fatalf("GET /listings/l1/bids: %v", err)
+	}
+	defer func() { _ = historyResp.Body.Close() }()
+	history := decodeJSON[[]fixtures.Bid](t, historyResp)
+	if len(history) != 1 || history[0].BuyerID != "buyer-1" || !history[0].IsAutoBid {
+		t.Fatalf("expected one auto-generated bid for buyer-1 to actually be recorded, got %+v", history)
+	}
+}
+
+func TestHandleSetAutoBidMaxValidationError(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	body, err := json.Marshal(setAutoBidMaxRequest{BuyerID: "buyer-1", MaxCents: 0})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/listings/l1/autobid", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /listings/l1/autobid: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for a non-positive maxCents, got %d", resp.StatusCode)
+	}
+}

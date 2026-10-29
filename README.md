@@ -24,13 +24,16 @@ This repository holds the application tier: the catalog backend, the purpose-bui
 ## catalog-api
 
 ```
-GET    /listings                       list listings, filterable by ?status= and ?sellerId=
-GET    /listings/{id}                  get a listing
-POST   /listings                       create a listing
-GET    /listings/{id}/bids             bid history for a listing
-POST   /listings/{id}/bids             place a bid
-DELETE /listings/{id}/bids/{buyerID}   withdraw a buyer's standing bid
+GET    /listings                     list listings, filterable by ?status= and ?sellerId=
+GET    /listings/{id}                get a listing
+POST   /listings                     create a listing
+GET    /listings/{id}/bids           bid history for a listing
+POST   /listings/{id}/bids           place a manual bid
+DELETE /listings/{id}/bids/{bidID}   withdraw a specific bid
+POST   /listings/{id}/autobid        set (or raise) a buyer's standing proxy-bid ceiling
 ```
+
+Auctions close automatically once their end time passes (to `sold` if they received a bid, `unsold-expired` otherwise). Proxy bidding is classic eBay-style: the price settles one increment above the second-highest standing ceiling, capped at the top ceiling; a manual bid also counts as a ceiling of exactly its own amount, so a stronger standing auto-bid immediately outbids it.
 
 ## Development
 

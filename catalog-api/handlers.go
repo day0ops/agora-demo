@@ -25,6 +25,7 @@ func NewMux(store *Store) *http.ServeMux {
 	mux.HandleFunc("GET /listings/{id}/bids", handleBidHistory(store))
 	mux.HandleFunc("POST /listings/{id}/bids", handlePlaceBid(store))
 	mux.HandleFunc("DELETE /listings/{id}/bids/{bidID}", handleWithdrawBid(store))
+	mux.HandleFunc("POST /listings/{id}/autobid", handleSetAutoBidMax(store))
 	return mux
 }
 
@@ -100,6 +101,27 @@ func handlePlaceBid(store *Store) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusCreated, bid)
+	}
+}
+
+type setAutoBidMaxRequest struct {
+	BuyerID  string `json:"buyerId"`
+	MaxCents int64  `json:"maxCents"`
+}
+
+func handleSetAutoBidMax(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req setAutoBidMaxRequest
+		if err := decodeJSONBody(w, r, &req); err != nil {
+			writeBadRequest(w, err)
+			return
+		}
+		l, err := store.SetAutoBidMax(r.PathValue("id"), req.BuyerID, req.MaxCents)
+		if err != nil {
+			writeStoreError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, l)
 	}
 }
 
