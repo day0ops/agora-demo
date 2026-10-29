@@ -50,14 +50,21 @@ build/
 #### Go ####
 coverage.out
 coverage.html
-# `go build ./...` with no -o in a package-main directory drops a binary
-# named after that directory -- ignore the known command binaries by name.
+# `go build` with no -o drops a binary named after the package directory.
+# catalog-api/ and console/ live at the repo root, so building `./catalog-api/...`
+# from the root can't produce a same-named stray file there (a real directory
+# already occupies that path) -- only building a nested mcp-servers/<name>/...
+# pattern from the root can, landing a same-named file at the root itself.
 /catalog-api/catalog-api
 /console/console
 /mcp-servers/bids-mcp/bids-mcp
 /mcp-servers/pricing-mcp/pricing-mcp
 /mcp-servers/trust-mcp/trust-mcp
 /mcp-servers/orders-mcp/orders-mcp
+/bids-mcp
+/pricing-mcp
+/trust-mcp
+/orders-mcp
 
 #### Node ####
 node_modules/
