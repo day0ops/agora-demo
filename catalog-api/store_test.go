@@ -1,0 +1,449 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/day0ops/marketplace-demo/fixtures"
+)
+
+func testStore(t *testing.T) *Store {
+	t.Helper()
+	counter := 0
+	return newStoreWithIDFunc(nil, nil, func(prefix string) string {
+		counter++
+		return fmt.Sprintf("%s-test-%d", prefix, counter)
+	})
+}
+
+func TestListListingsFiltersByStatusAndSeller(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", SellerID: "seller-1", Status: fixtures.ListingStatusActiveAuction, Type: fixtures.ListingTypeAuction, AuctionEndsAt: &end},
+		{ID: "l2", SellerID: "seller-1", Status: fixtures.ListingStatusSold, Type: fixtures.ListingTypeAuction, AuctionEndsAt: &end},
+		{ID: "l3", SellerID: "seller-2", Status: fixtures.ListingStatusActiveAuction, Type: fixtures.ListingTypeAuction, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	all := s.ListListings(ListingFilter{})
+	if len(all) != 3 {
+		t.Fatalf("expected 3 listings with no filter, got %d", len(all))
+	}
+
+	bySeller := s.ListListings(ListingFilter{SellerID: "seller-1"})
+	if len(bySeller) != 2 {
+		t.Fatalf("expected 2 listings for seller-1, got %d", len(bySeller))
+	}
+
+	byStatus := s.ListListings(ListingFilter{Status: fixtures.ListingStatusSold})
+	if len(byStatus) != 1 || byStatus[0].ID != "l2" {
+		t.Fatalf("expected only l2 for status sold, got %+v", byStatus)
+	}
+}
+
+func TestListListingsOrderedByCreatedAtThenID(t *testing.T) {
+	now := time.Now()
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "z-later", Type: fixtures.ListingTypeBuyNow, CreatedAt: now.Add(time.Minute)},
+		{ID: "b-same", Type: fixtures.ListingTypeBuyNow, CreatedAt: now},
+		{ID: "a-same", Type: fixtures.ListingTypeBuyNow, CreatedAt: now},
+	}, nil, nil)
+
+	result := s.ListListings(ListingFilter{})
+	ids := []string{result[0].ID, result[1].ID, result[2].ID}
+	want := []string{"a-same", "b-same", "z-later"}
+	for i := range want {
+		if ids[i] != want[i] {
+			t.Fatalf("expected order %v, got %v", want, ids)
+		}
+	}
+}
+
+func TestGetListingNotFound(t *testing.T) {
+	s := testStore(t)
+	_, err := s.GetListing("missing")
+	if !errors.Is(err, ErrListingNotFound) {
+		t.Fatalf("expected ErrListingNotFound, got %v", err)
+	}
+}
+
+func TestGetListingReturnsIndependentAuctionEndsAtPointer(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	first, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	*first.AuctionEndsAt = time.Now().Add(-time.Hour) // attempt to corrupt the store's copy
+
+	second, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !second.AuctionEndsAt.Equal(end) {
+		t.Fatalf("GetListing leaked a mutable pointer: store's AuctionEndsAt changed to %v", second.AuctionEndsAt)
+	}
+}
+
+func TestAuctionClosesToSoldWhenPastEndWithBids(t *testing.T) {
+	end := time.Now().Add(time.Minute)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+			PriceCents: 1000, CurrentBidCents: 1500, AuctionEndsAt: &end,
+		},
+	}, nil, nil)
+	s.now = func() time.Time { return end.Add(time.Second) }
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.Status != fixtures.ListingStatusSold {
+		t.Fatalf("expected status sold once past end time with a bid, got %q", l.Status)
+	}
+}
+
+func TestAuctionClosesToUnsoldExpiredWhenPastEndWithNoBids(t *testing.T) {
+	end := time.Now().Add(time.Minute)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+			PriceCents: 1000, CurrentBidCents: 0, AuctionEndsAt: &end,
+		},
+	}, nil, nil)
+	s.now = func() time.Time { return end.Add(time.Second) }
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.Status != fixtures.ListingStatusUnsoldExpired {
+		t.Fatalf("expected status unsold-expired once past end time with no bids, got %q", l.Status)
+	}
+}
+
+func TestPlaceBidRejectsOnceAuctionHasExpired(t *testing.T) {
+	end := time.Now().Add(time.Minute)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+			PriceCents: 1000, AuctionEndsAt: &end,
+		},
+	}, nil, nil)
+	s.now = func() time.Time { return end.Add(time.Second) }
+
+	_, err := s.PlaceBid("l1", "buyer-1", 2000)
+	if !errors.Is(err, ErrAuctionClosed) {
+		t.Fatalf("expected ErrAuctionClosed for a bid after the auction's end time, got %v", err)
+	}
+}
+
+func TestCreateListingValidation(t *testing.T) {
+	futureEnd := time.Now().Add(time.Hour)
+	pastEnd := time.Now().Add(-time.Hour)
+	cases := []struct {
+		name          string
+		sellerID      string
+		title         string
+		priceCents    int64
+		listingType   fixtures.ListingType
+		auctionEndsAt *time.Time
+		wantErr       error
+	}{
+		{"missing seller", "", "t", 100, fixtures.ListingTypeBuyNow, nil, ErrSellerIDRequired},
+		{"missing title", "s1", "", 100, fixtures.ListingTypeBuyNow, nil, ErrTitleRequired},
+		{"invalid price", "s1", "t", 0, fixtures.ListingTypeBuyNow, nil, ErrInvalidPrice},
+		{"auction missing end", "s1", "t", 100, fixtures.ListingTypeAuction, nil, ErrAuctionEndRequired},
+		{"auction end in the past", "s1", "t", 100, fixtures.ListingTypeAuction, &pastEnd, ErrAuctionEndInPast},
+		{"invalid type", "s1", "t", 100, fixtures.ListingType("garage-sale"), nil, ErrInvalidListingType},
+		{"valid buy-now", "s1", "t", 100, fixtures.ListingTypeBuyNow, nil, nil},
+		{"valid auction", "s1", "t", 100, fixtures.ListingTypeAuction, &futureEnd, nil},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := testStore(t)
+			l, err := s.CreateListing(tc.sellerID, tc.title, "desc", "cat", tc.listingType, tc.priceCents, tc.auctionEndsAt)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("expected %v, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if l.ID == "" {
+				t.Fatal("expected a generated ID")
+			}
+			wantStatus := fixtures.ListingStatusActiveBuyNow
+			if tc.listingType == fixtures.ListingTypeAuction {
+				wantStatus = fixtures.ListingStatusActiveAuction
+			}
+			if l.Status != wantStatus {
+				t.Fatalf("expected status %q, got %q", wantStatus, l.Status)
+			}
+		})
+	}
+}
+
+func TestCreateListingIgnoresAuctionEndsAtForBuyNow(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := testStore(t)
+
+	l, err := s.CreateListing("s1", "t", "desc", "cat", fixtures.ListingTypeBuyNow, 100, &end)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.AuctionEndsAt != nil {
+		t.Fatalf("expected a buy-now listing to have no AuctionEndsAt, got %v", l.AuctionEndsAt)
+	}
+}
+
+func TestPlaceBidHappyPath(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", SellerID: "seller-1", Type: fixtures.ListingTypeAuction,
+			Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, CurrentBidCents: 1000,
+			AuctionEndsAt: &end,
+		},
+	}, nil, func(prefix string) string { return prefix + "-1" })
+
+	bid, err := s.PlaceBid("l1", "buyer-1", 1500)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bid.AmountCents != 1500 {
+		t.Fatalf("expected bid amount 1500, got %d", bid.AmountCents)
+	}
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 1500 {
+		t.Fatalf("expected listing current bid 1500, got %d", l.CurrentBidCents)
+	}
+}
+
+func TestPlaceBidFirstBidMayEqualStartingPrice(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+			PriceCents: 1000, CurrentBidCents: 0, AuctionEndsAt: &end,
+		},
+	}, nil, nil)
+
+	bid, err := s.PlaceBid("l1", "buyer-1", 1000)
+	if err != nil {
+		t.Fatalf("expected a bid exactly at the starting price to be accepted, got error: %v", err)
+	}
+	if bid.AmountCents != 1000 {
+		t.Fatalf("expected bid amount 1000, got %d", bid.AmountCents)
+	}
+}
+
+func TestPlaceBidFirstBidBelowStartingPriceRejected(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+			PriceCents: 150000, CurrentBidCents: 0, AuctionEndsAt: &end,
+		},
+	}, nil, nil)
+
+	_, err := s.PlaceBid("l1", "buyer-1", 1)
+	if !errors.Is(err, ErrBidTooLow) {
+		t.Fatalf("expected ErrBidTooLow for a bid far below the starting price, got %v", err)
+	}
+}
+
+func TestPlaceBidRequiresBuyerID(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 100, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	_, err := s.PlaceBid("l1", "", 200)
+	if !errors.Is(err, ErrBuyerIDRequired) {
+		t.Fatalf("expected ErrBuyerIDRequired, got %v", err)
+	}
+}
+
+func TestPlaceBidRejectsNonAuction(t *testing.T) {
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow, PriceCents: 1000},
+	}, nil, nil)
+
+	_, err := s.PlaceBid("l1", "buyer-1", 1500)
+	if !errors.Is(err, ErrListingNotAuction) {
+		t.Fatalf("expected ErrListingNotAuction, got %v", err)
+	}
+}
+
+func TestPlaceBidRejectsClosedAuction(t *testing.T) {
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusSold, PriceCents: 1000, CurrentBidCents: 2000},
+	}, nil, nil)
+
+	_, err := s.PlaceBid("l1", "buyer-1", 2500)
+	if !errors.Is(err, ErrAuctionClosed) {
+		t.Fatalf("expected ErrAuctionClosed, got %v", err)
+	}
+}
+
+func TestPlaceBidRejectsBidEqualToCurrentPrice(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{
+			ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+			PriceCents: 1000, CurrentBidCents: 1500, AuctionEndsAt: &end,
+		},
+	}, nil, nil)
+
+	_, err := s.PlaceBid("l1", "buyer-1", 1500)
+	if !errors.Is(err, ErrBidTooLow) {
+		t.Fatalf("expected ErrBidTooLow for a bid merely equal to the current price, got %v", err)
+	}
+}
+
+func TestWithdrawBidByIDRevertsToNextHighest(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc(
+		[]fixtures.Listing{
+			{
+				ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+				PriceCents: 1000, CurrentBidCents: 2000, AuctionEndsAt: &end,
+			},
+		},
+		[]fixtures.Bid{
+			{ID: "b1", ListingID: "l1", BuyerID: "buyer-1", AmountCents: 1500},
+			{ID: "b2", ListingID: "l1", BuyerID: "buyer-2", AmountCents: 2000},
+		},
+		nil,
+	)
+
+	if err := s.WithdrawBid("l1", "b2"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 1500 {
+		t.Fatalf("expected current bid to revert to 1500, got %d", l.CurrentBidCents)
+	}
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(history) != 1 || history[0].ID != "b1" {
+		t.Fatalf("expected only b1 to remain, got %+v", history)
+	}
+}
+
+func TestWithdrawBidToZeroWhenNoneRemain(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc(
+		[]fixtures.Listing{
+			{
+				ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction,
+				PriceCents: 1000, CurrentBidCents: 1500, AuctionEndsAt: &end,
+			},
+		},
+		[]fixtures.Bid{{ID: "b1", ListingID: "l1", BuyerID: "buyer-1", AmountCents: 1500}},
+		nil,
+	)
+
+	if err := s.WithdrawBid("l1", "b1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	l, err := s.GetListing("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if l.CurrentBidCents != 0 {
+		t.Fatalf("expected current bid to revert to 0, got %d", l.CurrentBidCents)
+	}
+}
+
+func TestWithdrawBidNotFound(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	err := s.WithdrawBid("l1", "no-such-bid")
+	if !errors.Is(err, ErrBidNotFound) {
+		t.Fatalf("expected ErrBidNotFound, got %v", err)
+	}
+}
+
+func TestWithdrawBidRejectsOnClosedAuction(t *testing.T) {
+	s := newStoreWithIDFunc(
+		[]fixtures.Listing{{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusSold}},
+		[]fixtures.Bid{{ID: "b1", ListingID: "l1", BuyerID: "buyer-1", AmountCents: 1000}},
+		nil,
+	)
+
+	err := s.WithdrawBid("l1", "b1")
+	if !errors.Is(err, ErrAuctionClosed) {
+		t.Fatalf("expected ErrAuctionClosed for a withdrawal on a closed auction, got %v", err)
+	}
+}
+
+func TestBidHistoryOrderAndIsolation(t *testing.T) {
+	s := newStoreWithIDFunc(
+		[]fixtures.Listing{{ID: "l1", Type: fixtures.ListingTypeAuction}},
+		[]fixtures.Bid{
+			{ID: "b1", ListingID: "l1", BuyerID: "buyer-1", AmountCents: 1000},
+			{ID: "b2", ListingID: "l1", BuyerID: "buyer-2", AmountCents: 1500},
+		},
+		nil,
+	)
+
+	history, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(history) != 2 || history[0].ID != "b1" || history[1].ID != "b2" {
+		t.Fatalf("expected bids in insertion order, got %+v", history)
+	}
+
+	// Mutating the returned slice must not affect the store's own copy.
+	history[0].AmountCents = 999999
+	again, err := s.BidHistory("l1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if again[0].AmountCents != 1000 {
+		t.Fatalf("BidHistory leaked a mutable reference to internal state: got %d", again[0].AmountCents)
+	}
+}
+
+func TestNewDefaultIDNeverCollidesUnderConcurrency(t *testing.T) {
+	const n = 1000
+	ids := make(chan string, n)
+	for i := 0; i < n; i++ {
+		go func() { ids <- newDefaultID("bid") }()
+	}
+
+	seen := make(map[string]bool, n)
+	for i := 0; i < n; i++ {
+		id := <-ids
+		if seen[id] {
+			t.Fatalf("duplicate ID generated under concurrency: %s", id)
+		}
+		seen[id] = true
+	}
+}

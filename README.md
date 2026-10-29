@@ -1,0 +1,53 @@
+# Marketplace Demo
+
+[![ci](https://github.com/day0ops/marketplace-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/day0ops/marketplace-demo/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+A live buy/sell + auction marketplace demo for kagent Agent Substrate + agentgateway Enterprise: buyer and seller AI concierges run as Substrate actors, with agentgateway providing multi-provider LLM failover, budget/rate-limit enforcement, PII guardrails, RFC 8693 token exchange, and zero-code MCP tool generation from a REST OpenAPI spec.
+
+This repository holds the application tier: the catalog backend, the purpose-built MCP servers, and the marketplace console. The deployment glue that runs it on a cluster lives in [`agentic-field-kit`](https://github.com/day0ops/agentic-field-kit).
+
+**Status: work in progress.** The design is fully specified; this repo currently has the `catalog-api` backend and shared `fixtures` built out. The four MCP server adapters and the marketplace console are not yet implemented.
+
+## Components
+
+| Path | Purpose | Status |
+|---|---|---|
+| `fixtures/` | Shared synthetic dataset (sellers, buyers, listings, bids, orders) | Done |
+| `catalog-api/` | REST API owning all listings/bids/orders domain data. Its OpenAPI surface is wrapped into `listings-mcp` by agentgateway directly, with no MCP server code | Done (listings + bids; orders pending) |
+| `mcp-servers/bids-mcp/` | MCP server: place/withdraw auto-bids, bid history, current price | Not started |
+| `mcp-servers/pricing-mcp/` | MCP server: price comps/suggestions for sellers | Not started |
+| `mcp-servers/trust-mcp/` | MCP server: fraud/counterfeit/shill-bid signals, backed by a fast Jev risk score | Not started |
+| `mcp-servers/orders-mcp/` | MCP server: order status, simulated checkout | Not started |
+| `console/` | Marketplace console: Go backend + web SPA with buyer (`/shop`), seller (`/sell`), and operator (`/ops`) views | Not started |
+
+## catalog-api
+
+```
+GET    /listings                       list listings, filterable by ?status= and ?sellerId=
+GET    /listings/{id}                  get a listing
+POST   /listings                       create a listing
+GET    /listings/{id}/bids             bid history for a listing
+POST   /listings/{id}/bids             place a bid
+DELETE /listings/{id}/bids/{buyerID}   withdraw a buyer's standing bid
+```
+
+## Development
+
+```bash
+go work sync
+go build ./fixtures/... ./catalog-api/...
+go test ./fixtures/... ./catalog-api/...
+golangci-lint run ./fixtures/... ./catalog-api/...
+```
+
+Run the catalog API locally:
+
+```bash
+cd catalog-api && go run .
+# listening on :8080
+```
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
