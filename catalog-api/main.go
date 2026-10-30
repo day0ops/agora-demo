@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 func TestComputeReputationCountsByStatus(t *testing.T) {

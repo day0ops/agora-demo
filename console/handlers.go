@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 // consoleServer bundles everything the console's HTTP handlers need.

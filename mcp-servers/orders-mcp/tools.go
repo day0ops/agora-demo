@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

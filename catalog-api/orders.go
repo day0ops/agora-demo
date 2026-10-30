@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 // Sentinel errors specific to orders, checkable with errors.Is.

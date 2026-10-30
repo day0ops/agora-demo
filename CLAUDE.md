@@ -9,7 +9,7 @@ Application tier for the marketplace demo on kagent Agent Substrate + agentgatew
 ## Conventions
 
 - Go 1.27.0. MCP servers use `github.com/modelcontextprotocol/go-sdk` served at `POST /mcp`.
-- Each component is its own module under `github.com/day0ops/marketplace-demo/`; add it to `go.work`.
+- Each component is its own module under `github.com/day0ops/agora-demo/`; add it to `go.work`.
 - Shared data lives in `fixtures/` and is imported by servers, `catalog-api`, and the console; keep it the single source of truth (DRY).
 - All data is synthetic. No real personal or financial data.
 - `catalog-api`'s REST surface is the single source of truth for listings/bids/orders -- the purpose-built MCP servers (`bids-mcp`, `pricing-mcp`, `trust-mcp`, `orders-mcp`) call into it rather than holding their own copy of the data.

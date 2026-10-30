@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 // catalogClient is a thin HTTP client over catalog-api's read-only listings

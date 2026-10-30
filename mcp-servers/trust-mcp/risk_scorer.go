@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 // RiskScore is a calibrated-style risk assessment for a candidate bid.

@@ -49,6 +49,6 @@ export function mountFooter(root: HTMLElement): void {
   root.innerHTML = `
     <span>${APP_NAME}</span>
     <span>v${APP_VERSION}</span>
-    <a href="https://github.com/day0ops/marketplace-demo" target="_blank" rel="noopener noreferrer">GitHub</a>
+    <a href="https://github.com/day0ops/agora-demo" target="_blank" rel="noopener noreferrer">GitHub</a>
   `;
 }

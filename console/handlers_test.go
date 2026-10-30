@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 func newTestServer(catalogURL string) *consoleServer {

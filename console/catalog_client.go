@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 // catalogClient is the console's client over catalog-api -- the single

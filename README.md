@@ -1,6 +1,6 @@
-# Marketplace Demo
+# Agora Demo
 
-[![ci](https://github.com/day0ops/marketplace-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/day0ops/marketplace-demo/actions/workflows/ci.yml)
+[![ci](https://github.com/day0ops/agora-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/day0ops/agora-demo/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 A live buy/sell + auction marketplace demo for kagent Agent Substrate + agentgateway Enterprise: buyer and seller AI concierges run as Substrate actors, with agentgateway providing multi-provider LLM failover, budget/rate-limit enforcement, PII guardrails, RFC 8693 token exchange, and zero-code MCP tool generation from a REST OpenAPI spec.

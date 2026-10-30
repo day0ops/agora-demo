@@ -1,6 +1,6 @@
 package main
 
-import "github.com/day0ops/marketplace-demo/fixtures"
+import "github.com/day0ops/agora-demo/fixtures"
 
 // SellerReputation summarizes a seller's listing activity. It is a plain
 // aggregation of real catalog-api data (not a fabricated trust score) --

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 func TestHeuristicScorerFlagsSelfBidding(t *testing.T) {

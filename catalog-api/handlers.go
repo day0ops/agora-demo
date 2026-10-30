@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/day0ops/marketplace-demo/fixtures"
+	"github.com/day0ops/agora-demo/fixtures"
 )
 
 // maxRequestBodyBytes bounds every request body this API decodes, so a
