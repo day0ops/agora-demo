@@ -1,6 +1,6 @@
 import "./style.css";
 import { mountNavbar, mountFooter } from "./components/navbar";
-import { mountChat } from "./chat";
+import { mountChatPanel } from "./components/chatPanel";
 import { connectEvents } from "./events";
 import {
   listListings,
@@ -16,11 +16,14 @@ import {
 import { BUYERS } from "./identities";
 import { escapeHtml } from "./html";
 import { getStored, setStored } from "./storage";
-import { formatCents, formatCountdown, lotNumber } from "./format";
+import { formatCents, lotNumber } from "./format";
 import { statusPill } from "./components/statusPill";
+import { lotCard } from "./components/lotCard";
+import { refreshCountdowns } from "./components/countdown";
+import { listingImageEl } from "./components/listingImage";
+import { emptyState } from "./components/emptyState";
+import { icons } from "./icons";
 import type { Listing, Bid, Order, MarketplaceEvent } from "./types";
-
-const URGENT_THRESHOLD_MS = 60_000;
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
@@ -33,6 +36,12 @@ app.innerHTML = `
     <div class="layout">
       <div class="panel">
         <h2>Live auctions &amp; buy-now listings</h2>
+        <div class="shop-filters">
+          <input type="search" id="search-input" placeholder="Search by title or category..." aria-label="Search listings" />
+          <select id="category-select" aria-label="Filter by category">
+            <option value="">All categories</option>
+          </select>
+        </div>
         <div class="grid" id="listing-grid"><div class="empty">Loading listings...</div></div>
       </div>
       <div class="panel-stack">
@@ -56,11 +65,10 @@ app.innerHTML = `
 
 mountNavbar(document.querySelector("#topbar")!, "shop");
 mountFooter(document.querySelector("#footer")!);
-mountChat(
-  document.querySelector("#chat-mount")!,
-  "shopping-assistant",
-  "Shopping Assistant",
-);
+mountChatPanel(document.querySelector<HTMLDivElement>("#chat-mount")!, {
+  agent: "shopping-assistant",
+  label: "Shopping Assistant",
+});
 
 const buyerSelect = document.querySelector<HTMLSelectElement>("#buyer-select")!;
 buyerSelect.innerHTML = BUYERS.map(
@@ -77,12 +85,17 @@ function currentBuyerId(): string {
 
 const listings = new Map<string, Listing>();
 let selectedId: string | null = null;
+let searchQuery = "";
+let categoryFilter = "";
 const expiryRefreshRequested = new Set<string>();
 
 const grid = document.querySelector<HTMLDivElement>("#listing-grid")!;
 const detailPanel = document.querySelector<HTMLDivElement>("#detail-panel")!;
 const ordersLedger =
   document.querySelector<HTMLUListElement>("#orders-ledger")!;
+const searchInput = document.querySelector<HTMLInputElement>("#search-input")!;
+const categorySelect =
+  document.querySelector<HTMLSelectElement>("#category-select")!;
 
 function priceFor(l: Listing): number {
   return l.type === "auction"
@@ -90,38 +103,69 @@ function priceFor(l: Listing): number {
     : l.priceCents;
 }
 
-function renderCard(l: Listing): string {
-  const remaining = l.auctionEndsAt
-    ? new Date(l.auctionEndsAt).getTime() - Date.now()
-    : Infinity;
-  const countdown =
-    l.type === "auction"
-      ? `<span class="countdown ${remaining < URGENT_THRESHOLD_MS ? "urgent" : ""}" id="cd-${l.id}">${formatCountdown(l.auctionEndsAt, Date.now())}</span>`
-      : "";
-  return `
-    <div class="card ${l.id === selectedId ? "selected" : ""}" data-id="${l.id}">
-      <span class="lot-plate">${lotNumber(l.id)}</span>
-      <div class="title">${escapeHtml(l.title)}</div>
-      <div class="meta">${escapeHtml(l.category)}</div>
-      <div class="price">${formatCents(priceFor(l))}</div>
-      <div class="foot">
-        ${statusPill(l.status)}
-        ${countdown}
-      </div>
-    </div>
-  `;
+function matchesFilters(l: Listing): boolean {
+  const q = searchQuery.trim().toLowerCase();
+  const matchesSearch =
+    !q ||
+    l.title.toLowerCase().includes(q) ||
+    l.category.toLowerCase().includes(q);
+  const matchesCategory = !categoryFilter || l.category === categoryFilter;
+  return matchesSearch && matchesCategory;
+}
+
+// renderCategoryOptions rebuilds the filter dropdown from the listings
+// actually visible in the grid, so it never offers a category with zero
+// matches; if the previously-selected category drops out it falls back to
+// "All categories" rather than silently filtering on a stale value.
+function renderCategoryOptions(active: Listing[]): void {
+  const categories = [...new Set(active.map((l) => l.category))].sort();
+  if (categoryFilter && !categories.includes(categoryFilter)) {
+    categoryFilter = "";
+  }
+  categorySelect.innerHTML =
+    '<option value="">All categories</option>' +
+    categories
+      .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+      .join("");
+  categorySelect.value = categoryFilter;
 }
 
 function renderGrid(): void {
-  const visible = [...listings.values()]
+  const active = [...listings.values()]
     .filter(
       (l) => l.status === "active-auction" || l.status === "active-buy-now",
     )
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  grid.innerHTML = visible.length
-    ? visible.map(renderCard).join("")
-    : '<div class="empty">No active listings right now.</div>';
+  renderCategoryOptions(active);
+
+  const visible = active.filter(matchesFilters);
+  if (visible.length) {
+    grid.innerHTML = visible
+      .map((l) => lotCard(l, { selected: l.id === selectedId }))
+      .join("");
+    return;
+  }
+  grid.innerHTML = active.length
+    ? emptyState({
+        title: "No matching listings",
+        body: "Try a different search or category.",
+        icon: icons.shop,
+      })
+    : emptyState({
+        title: "No active listings",
+        body: "Check back soon as sellers list items.",
+        icon: icons.shop,
+      });
 }
+
+searchInput.addEventListener("input", () => {
+  searchQuery = searchInput.value;
+  renderGrid();
+});
+categorySelect.addEventListener("change", () => {
+  categoryFilter = categorySelect.value;
+  renderGrid();
+});
 
 grid.addEventListener("click", (e) => {
   const card = (e.target as HTMLElement).closest<HTMLElement>("[data-id]");
@@ -161,6 +205,7 @@ async function renderDetail(): Promise<void> {
   detailPanel.innerHTML = `
     <h2>Listing</h2>
     <div class="detail">
+      ${listingImageEl(listing, { eager: true })}
       ${isSold ? '<span class="sold-stamp">Sold</span>' : ""}
       <span class="lot-plate">${lotNumber(listing.id)}</span>
       <h3>${escapeHtml(listing.title)}</h3>
@@ -328,7 +373,11 @@ async function loadListings(): Promise<void> {
     [...auctions, ...buyNow].forEach((l) => listings.set(l.id, l));
     renderGrid();
   } catch {
-    grid.innerHTML = '<div class="empty">Could not reach catalog-api.</div>';
+    grid.innerHTML = emptyState({
+      title: "Catalog unavailable",
+      body: "Could not reach catalog-api. Try refreshing in a moment.",
+      icon: icons.shop,
+    });
   }
 }
 
@@ -369,23 +418,14 @@ connectEvents((evt: MarketplaceEvent) => {
 
 setInterval(() => {
   const now = Date.now();
-  for (const l of listings.values()) {
-    if (l.type !== "auction" || l.status !== "active-auction") continue;
-    const remaining = l.auctionEndsAt
-      ? new Date(l.auctionEndsAt).getTime() - now
-      : Infinity;
-    const el = document.getElementById(`cd-${l.id}`);
-    if (el) {
-      el.textContent = formatCountdown(l.auctionEndsAt, now);
-      el.classList.toggle("urgent", remaining < URGENT_THRESHOLD_MS);
-    }
-    // The server is the source of truth for when an auction actually closes;
-    // this just prompts one refetch shortly after the clock hits zero so a
-    // closed auction doesn't sit showing "ending..." until some other event
-    // happens to touch it.
-    if (remaining <= 0 && !expiryRefreshRequested.has(l.id)) {
-      expiryRefreshRequested.add(l.id);
-      refreshListing(l.id);
+  // The server is the source of truth for when an auction actually closes;
+  // this just prompts one refetch shortly after the clock hits zero so a
+  // closed auction doesn't sit showing "ending..." until some other event
+  // happens to touch it.
+  for (const id of refreshCountdowns(listings.values(), now)) {
+    if (!expiryRefreshRequested.has(id)) {
+      expiryRefreshRequested.add(id);
+      refreshListing(id);
     }
   }
 }, 1000);

@@ -274,6 +274,9 @@ button.link:hover {
   overflow-y: auto;
   padding: 4px 2px 4px 4px;
 }
+.grid .empty-state {
+  grid-column: 1 / -1;
+}
 
 /* Lot cards - a listing is a numbered auction lot (real auction-house
    convention, not decoration); numbers and prices use the mono face for a
@@ -409,6 +412,19 @@ button.link:hover {
 
 .detail {
   position: relative;
+}
+.detail .lot-plate {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
 }
 .detail h3 {
   font-weight: 600;
@@ -610,6 +626,32 @@ textarea {
   min-height: 0;
   max-height: 80px;
   resize: none;
+}
+
+/* Chat panel collapse - grid-template-rows 0fr/1fr transitions cleanly for
+   content of unknown height, unlike max-height tricks; the inner wrapper's
+   overflow:hidden clips mid-transition. */
+.chat-panel-head {
+  display: flex;
+  justify-content: flex-end;
+}
+.chat-panel-toggle svg {
+  transition: transform 0.15s ease;
+}
+.chat-panel-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.chat-panel-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.2s ease;
+}
+.chat-panel-collapse.collapsed {
+  grid-template-rows: 0fr;
+}
+.chat-panel-collapse > div {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .stats {
@@ -864,4 +906,21 @@ textarea {
   font-size: 14.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Shop page */
+.shop-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.shop-filters input[type="search"] {
+  flex: 1 1 200px;
+}
+.shop-filters select {
+  flex: 0 1 180px;
+}
+.lot-card .title {
+  margin-top: 0;
 }

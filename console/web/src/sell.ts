@@ -1,6 +1,6 @@
 import "./style.css";
 import { mountNavbar, mountFooter } from "./components/navbar";
-import { mountChat } from "./chat";
+import { mountChatPanel } from "./components/chatPanel";
 import { connectEvents } from "./events";
 import { listListings, createListing, ApiError } from "./api";
 import { SELLERS } from "./identities";
@@ -69,11 +69,10 @@ app.innerHTML = `
 
 mountNavbar(document.querySelector("#topbar")!, "sell");
 mountFooter(document.querySelector("#footer")!);
-mountChat(
-  document.querySelector("#chat-mount")!,
-  "listing-pricing-assistant",
-  "Pricing Assistant",
-);
+mountChatPanel(document.querySelector("#chat-mount")!, {
+  agent: "listing-pricing-assistant",
+  label: "Pricing Assistant",
+});
 
 const sellerSelect =
   document.querySelector<HTMLSelectElement>("#seller-select")!;
