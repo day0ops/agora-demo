@@ -110,13 +110,13 @@ a {
 }
 
 :focus-visible {
-  /* box-shadow instead of outline: outline rendered a visible seam at one
-     corner on rounded elements (textarea) in testing - browsers can draw
-     outline as separate stitched edge/corner segments that don't always
-     join cleanly with border-radius, where box-shadow is one unified shape
-     that always follows border-radius exactly. */
+  /* Inset, not outward: an outward ring (outline or box-shadow spread) paints
+     outside the element's own border box, so any ancestor with
+     overflow:hidden - e.g. the chat panel's collapse wrapper - clips it
+     wherever that ancestor's edge lines up with the element's. Inset paints
+     inside the element's own box, where no ancestor clip can ever reach it. */
   outline: none;
-  box-shadow: 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .sr-only {
