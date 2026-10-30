@@ -33,6 +33,16 @@ export interface Bid {
   isAutoBid: boolean;
   maxAutoBidCents?: number;
   placedAt: string;
+  trustCheck?: TrustCheckResult;
+  correlationId?: string;
+}
+
+// Mirrors fixtures.TrustCheckResult.
+export interface TrustCheckResult {
+  score: number;
+  reasons: string[];
+  scoredBy: string;
+  checkedAt: string;
 }
 
 export type OrderStatus =
@@ -47,6 +57,7 @@ export interface Order {
   finalPriceCents: number;
   status: OrderStatus;
   createdAt: string;
+  correlationId?: string;
 }
 
 // Mirrors the console backend's Event envelope (console/events.go) and the

@@ -67,6 +67,17 @@ type Listing struct {
 	Image string `json:"image,omitempty"`
 }
 
+// TrustCheckResult is a fraud/shill-bid risk assessment recorded against a
+// bid at the moment it was placed, produced by the trust-scoring package.
+// Nil when no trust check could be completed - never a fabricated or
+// default-zero result standing in for a real one.
+type TrustCheckResult struct {
+	Score     float64   `json:"score"`
+	Reasons   []string  `json:"reasons"`
+	ScoredBy  string    `json:"scoredBy"`
+	CheckedAt time.Time `json:"checkedAt"`
+}
+
 // Bid is a single bid placed against an auction listing. IsAutoBid and
 // MaxAutoBidCents describe whether a bid was placed automatically by the
 // proxy-bidding engine on a buyer's behalf, and the ceiling it was bidding
@@ -80,6 +91,12 @@ type Bid struct {
 	IsAutoBid       bool      `json:"isAutoBid"`
 	MaxAutoBidCents int64     `json:"maxAutoBidCents,omitempty"`
 	PlacedAt        time.Time `json:"placedAt"`
+	// TrustCheck is the fraud/shill-bid risk assessment for this bid, nil if
+	// none could be completed. See TrustCheckResult.
+	TrustCheck *TrustCheckResult `json:"trustCheck,omitempty"`
+	// CorrelationID links this bid to the agent execution that placed it, if
+	// any. Empty until an agent is wired to set it (not in this phase).
+	CorrelationID string `json:"correlationId,omitempty"`
 }
 
 // OrderStatus tracks a completed transaction through fulfillment.
@@ -102,4 +119,7 @@ type Order struct {
 	FinalPriceCents int64       `json:"finalPriceCents"`
 	Status          OrderStatus `json:"status"`
 	CreatedAt       time.Time   `json:"createdAt"`
+	// CorrelationID links this order to the agent execution that produced
+	// it, if any. Empty until an agent is wired to set it (not in this phase).
+	CorrelationID string `json:"correlationId,omitempty"`
 }
