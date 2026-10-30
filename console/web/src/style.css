@@ -95,10 +95,13 @@ body {
 /* Every page wraps its content in one <main>; growing it (not its
    children - .layout/.panel etc. keep their own content height) pins the
    footer to the bottom of the viewport on short pages without reintroducing
-   the internal-panel stretching this layout deliberately avoids elsewhere. */
+   the internal-panel stretching this layout deliberately avoids elsewhere.
+   No min-height override here deliberately: the default `auto` keeps main
+   from ever shrinking below its own content's height, so on a tall page
+   (e.g. Sell's long form) the footer still renders after all of it instead
+   of at the height flex-grow would otherwise allocate. */
 #app > main {
   flex: 1;
-  min-height: 0;
 }
 
 a {
