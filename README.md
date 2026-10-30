@@ -7,7 +7,7 @@ A live buy/sell + auction marketplace demo for kagent Agent Substrate + agentgat
 
 This repository holds the application tier: the catalog backend, the purpose-built MCP servers, and the marketplace console. The deployment glue that runs it on a cluster lives in [`agentic-field-kit`](https://github.com/day0ops/agentic-field-kit).
 
-**Status: application tier complete.** `catalog-api`, `fixtures`, all four MCP servers (`bids-mcp`, `pricing-mcp`, `orders-mcp`, `trust-mcp`), and the marketplace console are built out. Wiring this into `agentic-field-kit` (the deployment profile, features, and usecase spec that actually run it on a cluster) is tracked separately.
+**Status: application tier complete, console redesigned.** `catalog-api`, `fixtures`, all four MCP servers (`bids-mcp`, `pricing-mcp`, `orders-mcp`, `trust-mcp`), and the marketplace console (branded **Agora**) are built out, including a full visual redesign (design tokens, a shared component system, real listing photography) described below. Wiring this into `agentic-field-kit` (the deployment profile, features, and usecase spec that actually run it on a cluster), and the deeper Agent Journey / Operator Studio surfaces that need a live Agent Substrate cluster, are tracked separately.
 
 ## Components
 
@@ -64,6 +64,15 @@ GET    /api/stats                        active listings / total orders / connec
 Write endpoints relay catalog-api's own status code and error message rather than flattening every failure to 400, so the frontend can tell "not found" apart from "conflict" apart from "forbidden". Every successful write also publishes an event onto the SSE feed (`listing.created`, `bid.placed`, `bid.withdrawn`, `autobid.set`, `order.created`), which all three frontend views subscribe to for live updates.
 
 The frontend is a vanilla TypeScript + Vite SPA (no framework, matching the sibling `fraud-investigation-swarm` console's conventions) with one HTML entry point per view - `index.html` (landing page), `shop.html`, `sell.html`, `ops.html` - built to `console/web/dist` and embedded into the Go binary via `//go:embed`. There's no authentication yet: each view has a plain identity picker (`console/web/src/identities.ts`) mirroring the accounts `fixtures.Seed()` creates, so the SE picks who they're "acting as" during a demo.
+
+### Design system
+
+- **Tokens** (`console/web/src/style.css`, `TOKENS`/`BASE` sections): one `:root` block plus a `[data-theme="light"]` override driving both themes from the same palette and spacing/radius scale. Both themes are verified against WCAG AA for text and status-pill contrast. Fonts are Geist Variable (sans) and JetBrains Mono Variable (prices, lot numbers, timers, IDs), loaded from the Fontsource CDN.
+- **Icons** (`console/web/src/icons.ts`): one inline SVG set (`currentColor`-themeable) for the brand mark, nav, theme toggle, categories, and UI affordances - no emoji anywhere in the app.
+- **Components** (`console/web/src/components/`): `navbar` (top nav, theme toggle, footer), `lotCard` (the imagery-led listing card used by both Shop and Sell), `chatPanel` (the collapsible assistant panel), `listingImage`, `statusPill`, `countdown`, `emptyState`.
+- **Imagery** (`console/web/public/images/`): each seeded listing has a real public-domain or CC0 photo sourced from Wikimedia Commons, license and author recorded per image in `public/images/ATTRIBUTIONS.md`. Any listing without a committed photo - including every listing created live through the Sell form - falls back to a themeable per-category SVG, never a broken image.
+- **Accessibility**: semantic landmarks on every page, a visible `:focus-visible` outline, keyboard-operable lot cards, labeled form controls (visually-hidden labels where a visible one would clutter a compact control), and `prefers-reduced-motion` respected throughout.
+- **Honesty rule**: nothing in the console is fabricated. The chat panels are a real, working honest stub (see below); the Sell page's "Recommended pricing" and "Comparable items" sections render a plain empty state explaining they populate once a live agent is connected, rather than inventing numbers.
 
 ### A note on agent invocation
 
