@@ -7,7 +7,7 @@ A live buy/sell + auction marketplace demo for kagent Agent Substrate + agentgat
 
 This repository holds the application tier: the catalog backend, the purpose-built MCP servers, and the marketplace console. The deployment glue that runs it on a cluster lives in [`agentic-field-kit`](https://github.com/day0ops/agentic-field-kit).
 
-**Status: work in progress.** The design is fully specified; `catalog-api`, `fixtures`, `bids-mcp`, `pricing-mcp`, and `orders-mcp` are built out. One MCP server adapter and the marketplace console are not yet implemented.
+**Status: work in progress.** The design is fully specified; `catalog-api`, `fixtures`, and all four MCP servers (`bids-mcp`, `pricing-mcp`, `orders-mcp`, `trust-mcp`) are built out. Only the marketplace console remains.
 
 ## Components
 
@@ -18,8 +18,12 @@ This repository holds the application tier: the catalog backend, the purpose-bui
 | `mcp-servers/bids-mcp/` | MCP server: place/withdraw bids, set a standing auto-bid ceiling, bid history, current price. A thin client over `catalog-api` - holds no data of its own | Done |
 | `mcp-servers/pricing-mcp/` | MCP server: `suggest_price` for sellers - real comps from `catalog-api`'s sold listings, falling back to a static baseline with no sales history yet | Done |
 | `mcp-servers/orders-mcp/` | MCP server: `checkout`, `get_order`, `list_orders` - a thin client over `catalog-api`'s checkout/orders endpoints | Done |
-| `mcp-servers/trust-mcp/` | MCP server: fraud/counterfeit/shill-bid signals, backed by a fast Jev risk score | Not started |
+| `mcp-servers/trust-mcp/` | MCP server: `score_bid_risk` (pluggable `RiskScorer`, currently a local heuristic - see note below) and `check_seller_reputation` | Done |
 | `console/` | Marketplace console: Go backend + web SPA with buyer (`/shop`), seller (`/sell`), and operator (`/ops`) views | Not started |
+
+### A note on Jev
+
+The design calls for `trust-mcp`'s risk scoring to eventually run on Jev, TypeSafe.ai's fast "System One" structured-decision model. As of this writing there is no confirmed Jev API contract, credentials, or endpoint available to this project - only a blog post. Rather than ship an integration against an unverified API shape, `trust-mcp` defines a `RiskScorer` interface (`mcp-servers/trust-mcp/risk_scorer.go`) with a working, tested, local heuristic as the default implementation. Swapping in a real Jev-backed scorer once API access exists is a one-line change at `NewScorer()`; nothing else in the package needs to change.
 
 ## catalog-api
 

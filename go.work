@@ -6,4 +6,5 @@ use (
 	./mcp-servers/bids-mcp
 	./mcp-servers/orders-mcp
 	./mcp-servers/pricing-mcp
+	./mcp-servers/trust-mcp
 )
