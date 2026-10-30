@@ -188,7 +188,7 @@ button.ghost:hover {
 }
 button.danger {
   background: var(--bad);
-  color: #fff;
+  color: var(--accent-ink);
 }
 button.danger:hover {
   background: var(--bad);
@@ -196,7 +196,7 @@ button.danger:hover {
 }
 button.secondary {
   background: var(--accent-2);
-  color: #fff;
+  color: var(--accent-ink);
 }
 button.secondary:hover {
   background: var(--accent-2);
@@ -483,7 +483,7 @@ button.link:hover {
   top: 0;
   right: 0;
   background: var(--bad);
-  color: #fff;
+  color: var(--accent-ink);
   font-weight: 700;
   font-size: 12.5px;
   letter-spacing: 0.5px;

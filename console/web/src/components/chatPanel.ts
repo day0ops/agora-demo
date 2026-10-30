@@ -38,7 +38,7 @@ export function mountChatPanel(
         : ""
     }
     <div class="chat-panel-collapse${expanded ? "" : " collapsed"}" id="chat-collapse">
-      <div>
+      <div${expanded ? "" : " inert"}>
         <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
         <form id="chat-form" class="chat-form">
           <label class="sr-only" for="chat-input">Message ${escapeHtml(label)}</label>
@@ -51,6 +51,7 @@ export function mountChatPanel(
 
   const toggle = root.querySelector<HTMLButtonElement>(".chat-panel-toggle");
   const collapse = root.querySelector<HTMLDivElement>("#chat-collapse")!;
+  const collapseInner = collapse.querySelector<HTMLDivElement>(":scope > div")!;
   toggle?.addEventListener("click", () => {
     const next = toggle.getAttribute("aria-expanded") !== "true";
     toggle.setAttribute("aria-expanded", String(next));
@@ -59,6 +60,10 @@ export function mountChatPanel(
       `${next ? "Collapse" : "Expand"} ${label}`,
     );
     collapse.classList.toggle("collapsed", !next);
+    // The collapsed panel is visually clipped to 0 height, but its form
+    // controls stay in the tab order and accessibility tree without this -
+    // inert removes both while collapsed.
+    collapseInner.toggleAttribute("inert", !next);
   });
 
   const log = root.querySelector<HTMLDivElement>("#chat-log")!;
