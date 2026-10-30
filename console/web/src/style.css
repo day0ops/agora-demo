@@ -110,10 +110,13 @@ a {
 }
 
 :focus-visible {
-  /* Integer width/offset - a fractional width (1.5px) anti-aliases unevenly
-     at rounded corners, leaving a visible gap/seam in the outline. */
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
+  /* box-shadow instead of outline: outline rendered a visible seam at one
+     corner on rounded elements (textarea) in testing - browsers can draw
+     outline as separate stitched edge/corner segments that don't always
+     join cleanly with border-radius, where box-shadow is one unified shape
+     that always follows border-radius exactly. */
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .sr-only {
