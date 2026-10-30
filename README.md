@@ -69,7 +69,7 @@ The frontend is a vanilla TypeScript + Vite SPA (no framework, matching the sibl
 
 - **Tokens** (`console/web/src/style.css`, `TOKENS`/`BASE` sections): one `:root` block plus a `[data-theme="light"]` override driving both themes from the same palette and spacing/radius scale. Both themes are verified against WCAG AA for text and status-pill contrast. Fonts are Geist Variable (sans) and JetBrains Mono Variable (prices, lot numbers, timers, IDs), loaded from the Fontsource CDN.
 - **Icons** (`console/web/src/icons.ts`): one inline SVG set (`currentColor`-themeable) for the brand mark, nav, theme toggle, and UI affordances - no emoji anywhere in the app.
-- **Components** (`console/web/src/components/`): `navbar` (top nav, theme toggle, footer), `lotCard` (the imagery-led listing card used by both Shop and Sell), `chatPanel` (the collapsible assistant panel), `listingImage`, `statusPill`, `countdown`, `emptyState`.
+- **Components** (`console/web/src/components/`): `navbar` (top nav, theme toggle, footer), `lotCard` (the imagery-led listing card used by both Shop and Sell), `chatPanel` (the collapsible assistant panel), `listingImage`, `statusPill`, `countdown`, `emptyState`, `executionDrawer` (the "Behind the scenes" panel, see below).
 - **Imagery** (`console/web/public/images/`): each seeded listing has a real public-domain or CC0 photo sourced from Wikimedia Commons, license and author recorded per image in `public/images/ATTRIBUTIONS.md`. Any listing without a committed photo - including every listing created live through the Sell form - falls back to a fixed-color per-category SVG (`public/images/categories/`), never a broken image.
 - **Accessibility**: semantic landmarks on every page, a visible `:focus-visible` outline, keyboard-operable lot cards, labeled form controls (visually-hidden labels where a visible one would clutter a compact control), and `prefers-reduced-motion` respected throughout.
 - **Honesty rule**: nothing in the console is fabricated. The chat panels are a real, working honest stub (see below); the Sell page's "Recommended pricing" and "Comparable items" sections render a plain empty state explaining they populate once a live agent is connected, rather than inventing numbers.
@@ -77,6 +77,15 @@ The frontend is a vanilla TypeScript + Vite SPA (no framework, matching the sibl
 ### A note on agent invocation
 
 The shop and sell views each have a chat panel against a named Substrate concierge agent (`shopping-assistant`, `listing-pricing-assistant`). The real implementation talks to kagent Agent Substrate via `CreateAgentInstance` + A2A `SendMessage` - a recipe already proven working for the sibling `fraud-ops-console` demo, but built and verified against an older kagent architecture generation. kagent v1.0.0-alpha12 (the version this project targets) replaced that generation's Harness/AgentTemplate label-selector admission model with an explicit `Agent` CRD pairing, so reusing the old recipe without re-verifying it against a live alpha12 cluster would mean shipping integration code nobody has confirmed still works. `console/agent_invoker.go` defines an `AgentInvoker` interface with a documented stub (`AgentInvokerStub`) as the default implementation, mirroring `trust-mcp`'s `RiskScorer` pattern - the chat panel renders the stub's `ErrAgentInvokerNotConfigured` message like any other agent reply, which doubles as a live demonstration of exactly where the real agent's reply will appear once it's wired in.
+
+### Explore Execution drawer
+
+Every sold listing, order, and relevant activity-feed entry on the Shop and Ops views has a "Behind the scenes" trigger (`console/web/src/components/executionDrawer.ts`) that opens a focus-trapped, three-level drawer:
+
+- **Summary** - real today. It shows the trust check actually run in-process by `catalog-api` when the bid was placed (score and flagged reasons, or "not available" for bids that predate the trust check).
+- **Agent Journey** and **Technical Inspector** - built, and honestly empty. Both are wired to `console/web/src/adapters/executionAdapter.ts` and `substrateAdapter.ts`, which always return an empty result today because nothing populates a bid's or order's correlation ID yet - there is no live Agent Substrate run to assemble a journey or inspector trace from. Both sections render a plain "not available" state rather than fabricating steps, and need no caller changes once a real adapter is wired in behind a live substrate and real agents.
+
+Keyboard behavior is verified: `role="dialog"` with `aria-modal`, focus moves into the drawer on open and is trapped within it on Tab/Shift+Tab, and Escape closes the drawer and restores focus to the trigger that opened it.
 
 ## Development
 
