@@ -142,6 +142,62 @@ a {
 }
 
 /* === COMPONENTS === */
+.execution-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+.execution-drawer-root.hidden {
+  display: none;
+}
+.execution-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.execution-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 16px;
+  overflow-y: auto;
+}
+.execution-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+}
+.execution-drawer-head h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.execution-section h3 {
+  font-size: 12.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.trust-check-line {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.behind-the-scenes-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .topbar {
   display: flex;
   align-items: center;

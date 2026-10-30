@@ -28,4 +28,6 @@ export const icons: Record<string, string> = {
   chevronDown: `<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M12 15.5 5 8.5 6.4 7.1 12 12.7 17.6 7.1 19 8.5Z"/></svg>`,
   gavel: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="13" height="5" rx="1.5"/><rect x="12.5" y="8.5" width="3" height="10" rx="1.5"/><rect x="3" y="20" width="9" height="2.2" rx="1"/></svg>`,
   tag: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 4H13L21 12L13 20H3V4ZM6.3 6.8a1.3 1.3 0 1 0 0 2.6a1.3 1.3 0 1 0 0-2.6Z"/></svg>`,
+  scan: `<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><path fill-rule="evenodd" d="M12 6c4.4 0 8 3 9 6-1 3-4.6 6-9 6s-8-3-9-6c1-3 4.6-6 9-6Zm0 2.3a3.7 3.7 0 1 0 0 7.4a3.7 3.7 0 1 0 0-7.4Zm0 2a1.7 1.7 0 1 1 0 3.4a1.7 1.7 0 1 1 0-3.4Z"/></svg>`,
+  close: `<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6Z"/></svg>`,
 };
