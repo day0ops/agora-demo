@@ -69,6 +69,7 @@ type Store struct {
 	listings       map[string]fixtures.Listing
 	bids           map[string][]fixtures.Bid            // keyed by listing ID
 	autoBids       map[string]map[string]autoBidCeiling // listingID -> buyerID -> ceiling
+	orders         map[string]fixtures.Order            // keyed by order ID
 	nextCeilingSeq int64
 	newID          func(prefix string) string
 	now            func() time.Time
@@ -95,6 +96,7 @@ func newStoreWithIDFunc(
 		listings: make(map[string]fixtures.Listing, len(listings)),
 		bids:     make(map[string][]fixtures.Bid),
 		autoBids: make(map[string]map[string]autoBidCeiling),
+		orders:   make(map[string]fixtures.Order),
 		newID:    newID,
 		now:      time.Now,
 	}
@@ -310,10 +312,16 @@ func (s *Store) registerCeiling(listingID, buyerID string, maxCents int64) {
 // bidIncrementCents above the second-highest ceiling, capped at the top
 // ceiling, or at the listing's starting price when only one ceiling is
 // registered (nobody is pushing the leader yet); ties on the top ceiling go
-// to whichever buyer registered first. No ceiling below the starting price
-// can win the auction at all. Never lowers the current price. When the price
-// changes, an auto-generated Bid is recorded for the new leader. Must be
-// called with s.mu held.
+// to whichever buyer registered first -- but only when that tie actually
+// raises the price. A manual bid that merely matches an existing equal
+// ceiling (both at, say, 5000) leaves the current price unchanged (the
+// "never lowers the current price" rule below applies to a no-op tie too),
+// so the earlier registrant does NOT reclaim the lead in that specific case;
+// the bid history and CurrentBidCents stay mutually consistent regardless,
+// since both reflect whoever's bid is actually on record. No ceiling below
+// the starting price can win the auction at all. When the price changes, an
+// auto-generated Bid is recorded for the new leader. Must be called with
+// s.mu held.
 func (s *Store) resolveProxyBidding(l fixtures.Listing) fixtures.Listing {
 	raw := s.autoBids[l.ID]
 	if len(raw) == 0 {

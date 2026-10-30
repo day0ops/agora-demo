@@ -26,6 +26,9 @@ func NewMux(store *Store) *http.ServeMux {
 	mux.HandleFunc("POST /listings/{id}/bids", handlePlaceBid(store))
 	mux.HandleFunc("DELETE /listings/{id}/bids/{bidID}", handleWithdrawBid(store))
 	mux.HandleFunc("POST /listings/{id}/autobid", handleSetAutoBidMax(store))
+	mux.HandleFunc("POST /listings/{id}/checkout", handleCheckout(store))
+	mux.HandleFunc("GET /orders/{id}", handleGetOrder(store))
+	mux.HandleFunc("GET /orders", handleListOrders(store))
 	return mux
 }
 
@@ -176,11 +179,13 @@ func writeBadRequest(w http.ResponseWriter, err error) {
 }
 
 // writeStoreError maps a Store sentinel error to the right HTTP status: 404
-// for not-found, 400 for invalid input, 409 for a valid request that
-// conflicts with the listing's current state.
+// for not-found, 400 for invalid input, 403 when the request is denied
+// because of who the caller is rather than the listing's current state
+// (e.g. checking out an auction you didn't win), 409 for a valid request
+// that conflicts with the listing's current state.
 func writeStoreError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, ErrListingNotFound), errors.Is(err, ErrBidNotFound):
+	case errors.Is(err, ErrListingNotFound), errors.Is(err, ErrBidNotFound), errors.Is(err, ErrOrderNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: err.Error()})
 	case errors.Is(err, ErrBuyerIDRequired),
 		errors.Is(err, ErrSellerIDRequired),
@@ -190,7 +195,12 @@ func writeStoreError(w http.ResponseWriter, err error) {
 		errors.Is(err, ErrAuctionEndInPast),
 		errors.Is(err, ErrInvalidListingType):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
-	case errors.Is(err, ErrListingNotAuction), errors.Is(err, ErrAuctionClosed), errors.Is(err, ErrBidTooLow):
+	case errors.Is(err, ErrNotTheWinningBidder):
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: err.Error()})
+	case errors.Is(err, ErrListingNotAuction),
+		errors.Is(err, ErrAuctionClosed),
+		errors.Is(err, ErrBidTooLow),
+		errors.Is(err, ErrListingNotForSale):
 		writeJSON(w, http.StatusConflict, errorResponse{Error: err.Error()})
 	default:
 		log.Printf("unmapped store error: %v", err)

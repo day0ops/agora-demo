@@ -262,3 +262,101 @@ func TestHandleSetAutoBidMaxValidationError(t *testing.T) {
 		t.Fatalf("expected 400 for a non-positive maxCents, got %d", resp.StatusCode)
 	}
 }
+
+func TestHandleCheckoutBuyNowAndGetOrder(t *testing.T) {
+	store := newStoreWithIDFunc(
+		[]fixtures.Listing{
+			{ID: "l2", SellerID: "seller-1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow, PriceCents: 4500},
+		},
+		nil,
+		func(prefix string) string { return prefix + "-generated" },
+	)
+	srv := httptest.NewServer(NewMux(store))
+	t.Cleanup(srv.Close)
+
+	body, err := json.Marshal(checkoutRequest{BuyerID: "buyer-1"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/listings/l2/checkout", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /listings/l2/checkout: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", resp.StatusCode)
+	}
+	order := decodeJSON[fixtures.Order](t, resp)
+	if order.FinalPriceCents != 4500 {
+		t.Fatalf("unexpected order: %+v", order)
+	}
+	if loc := resp.Header.Get("Location"); loc != "/orders/"+order.ID {
+		t.Fatalf("expected Location /orders/%s, got %q", order.ID, loc)
+	}
+
+	getResp, err := http.Get(srv.URL + "/orders/" + order.ID)
+	if err != nil {
+		t.Fatalf("GET /orders/%s: %v", order.ID, err)
+	}
+	defer func() { _ = getResp.Body.Close() }()
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", getResp.StatusCode)
+	}
+	fetched := decodeJSON[fixtures.Order](t, getResp)
+	if fetched.ID != order.ID {
+		t.Fatalf("expected to fetch the same order, got %+v", fetched)
+	}
+}
+
+func TestHandleCheckoutConflict(t *testing.T) {
+	store := newStoreWithIDFunc(
+		[]fixtures.Listing{{ID: "l2", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusSold, PriceCents: 4500}},
+		nil,
+		func(prefix string) string { return prefix + "-generated" },
+	)
+	srv := httptest.NewServer(NewMux(store))
+	t.Cleanup(srv.Close)
+
+	body, err := json.Marshal(checkoutRequest{BuyerID: "buyer-1"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/listings/l2/checkout", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /listings/l2/checkout: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409 for an already-sold listing, got %d", resp.StatusCode)
+	}
+}
+
+func TestHandleListOrders(t *testing.T) {
+	store := newStoreWithIDFunc(
+		[]fixtures.Listing{{ID: "l2", SellerID: "seller-1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow, PriceCents: 4500}},
+		nil,
+		func(prefix string) string { return prefix + "-generated" },
+	)
+	srv := httptest.NewServer(NewMux(store))
+	t.Cleanup(srv.Close)
+
+	body, err := json.Marshal(checkoutRequest{BuyerID: "buyer-1"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	postResp, err := http.Post(srv.URL+"/listings/l2/checkout", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /listings/l2/checkout: %v", err)
+	}
+	_ = postResp.Body.Close()
+
+	listResp, err := http.Get(srv.URL + "/orders?buyerId=buyer-1")
+	if err != nil {
+		t.Fatalf("GET /orders?buyerId=buyer-1: %v", err)
+	}
+	defer func() { _ = listResp.Body.Close() }()
+	orders := decodeJSON[[]fixtures.Order](t, listResp)
+	if len(orders) != 1 || orders[0].BuyerID != "buyer-1" {
+		t.Fatalf("expected 1 order for buyer-1, got %+v", orders)
+	}
+}
