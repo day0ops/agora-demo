@@ -6,6 +6,7 @@ import { escapeHtml } from "./html";
 import { formatCents } from "./format";
 import { icons } from "./icons";
 import { openExecutionDrawer } from "./components/executionDrawer";
+import { substrateTopology } from "./components/substrateTopology";
 import type { MarketplaceEvent } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -25,6 +26,10 @@ app.innerHTML = `
     <div class="panel activity-panel">
       <h2>Live activity</h2>
       <div class="event-log" id="event-log"></div>
+    </div>
+    <div class="panel" id="substrate-panel">
+      <h2>Agent Substrate</h2>
+      <div id="substrate-topology"><div class="empty">Loading...</div></div>
     </div>
   </main>
   <footer id="footer"></footer>
@@ -135,6 +140,13 @@ connectEvents((evt: MarketplaceEvent) => {
   void refreshStats();
 });
 
+async function loadSubstrateTopology(): Promise<void> {
+  const html = await substrateTopology();
+  document.querySelector<HTMLDivElement>("#substrate-topology")!.innerHTML =
+    html;
+}
+
 void loadListingTitles();
 void refreshStats();
+void loadSubstrateTopology();
 setInterval(() => void refreshStats(), 10000);
