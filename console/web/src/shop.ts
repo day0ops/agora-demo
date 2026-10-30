@@ -100,6 +100,13 @@ const searchInput = document.querySelector<HTMLInputElement>("#search-input")!;
 const categorySelect =
   document.querySelector<HTMLSelectElement>("#category-select")!;
 
+function highestBid(bids: Bid[]): Bid | undefined {
+  return bids.reduce<Bid | undefined>(
+    (max, b) => (!max || b.amountCents > max.amountCents ? b : max),
+    undefined,
+  );
+}
+
 function priceFor(l: Listing): number {
   return l.type === "auction"
     ? l.currentBidCents || l.priceCents
@@ -217,12 +224,7 @@ async function renderDetail(): Promise<void> {
     listing.status === "active-auction" || listing.status === "active-buy-now";
   const isSold = listing.status === "sold";
   const isWon = isAuction && isSold;
-  const winningBid = isSold
-    ? bids.reduce<Bid | undefined>(
-        (max, b) => (!max || b.amountCents > max.amountCents ? b : max),
-        undefined,
-      )
-    : undefined;
+  const winningBid = isSold ? highestBid(bids) : undefined;
   const isPassed =
     listing.status === "unsold-expired" || listing.status === "withdrawn";
 
@@ -400,7 +402,7 @@ function renderOrders(orders: Order[]): void {
             <li>
               <span class="item">${escapeHtml(title)}</span>
               <span class="amt">${formatCents(o.finalPriceCents)}</span>
-              <button type="button" class="link behind-the-scenes-btn" data-listing-id="${o.listingId}" data-buyer-id="${escapeHtml(o.buyerId)}" data-title="${escapeHtml(title)}" data-price-cents="${o.finalPriceCents}" data-correlation-id="${escapeHtml(o.correlationId ?? "")}">${icons.scan} Behind the scenes</button>
+              <button type="button" class="link behind-the-scenes-btn" data-listing-id="${escapeHtml(o.listingId)}" data-buyer-id="${escapeHtml(o.buyerId)}" data-title="${escapeHtml(title)}" data-price-cents="${escapeHtml(String(o.finalPriceCents))}" data-correlation-id="${escapeHtml(o.correlationId ?? "")}">${icons.scan} Behind the scenes</button>
             </li>`;
         })
         .join("")
@@ -416,16 +418,15 @@ ordersLedger.addEventListener("click", async (e) => {
   let winningBid: Bid | undefined;
   try {
     const history = await bidHistory(listingId!);
-    winningBid = history.reduce<Bid | undefined>(
-      (max, b) => (!max || b.amountCents > max.amountCents ? b : max),
-      undefined,
-    );
+    winningBid = highestBid(history);
   } catch {
     // best-effort; the drawer still opens with an order-only summary
   }
   openExecutionDrawer({
     summary: {
-      title: `${buyerId} won "${title}"`,
+      title: winningBid
+        ? `${buyerId} won "${title}"`
+        : `${buyerId} purchased "${title}"`,
       body: `Final price ${formatCents(Number(priceCents))}.`,
       trustCheck: winningBid?.trustCheck
         ? {

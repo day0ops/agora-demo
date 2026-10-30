@@ -273,10 +273,18 @@ func (s *Store) CreateListing(
 // candidate bid's current listing history (history does not yet include the
 // candidate bid itself). A scorer failure never blocks the bid: it is
 // logged and the bid proceeds with no trust-check result, matching the "a
-// trust-check outage never blocks a buyer" rule - now enforced structurally
-// since there is no network call that can time out, only a possible
-// programming error in the scorer itself. Must be called with s.mu held.
-func (s *Store) scoreBidRisk(listingID, buyerID string, amountCents, listingPriceCents int64) *fixtures.TrustCheckResult {
+// trust-check outage never blocks a buyer" rule. A panic in the scorer (e.g.
+// a future network-backed implementation) is recovered the same way, since
+// a programming error in the scorer must never turn a bid placement into a
+// 500. Must be called with s.mu held.
+func (s *Store) scoreBidRisk(listingID, buyerID string, amountCents, listingPriceCents int64) (result *fixtures.TrustCheckResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("trust check for bid on %s by %s panicked: %v", listingID, buyerID, r)
+			result = nil
+		}
+	}()
+
 	risk, err := s.scorer.ScoreBidRisk(context.Background(), trustscoring.BidRiskInput{
 		ListingID:         listingID,
 		BuyerID:           buyerID,

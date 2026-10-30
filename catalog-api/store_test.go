@@ -813,6 +813,28 @@ func TestPlaceBidTrustCheckNilWhenScorerFails(t *testing.T) {
 	}
 }
 
+type panickingScorer struct{}
+
+func (panickingScorer) ScoreBidRisk(context.Context, trustscoring.BidRiskInput) (trustscoring.RiskScore, error) {
+	panic("scorer programming error")
+}
+
+func TestPlaceBidTrustCheckNilWhenScorerPanics(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+	s.scorer = panickingScorer{}
+
+	bid, err := s.PlaceBid("l1", "buyer-1", 1000)
+	if err != nil {
+		t.Fatalf("expected bid to succeed even when the scorer panics, got error: %v", err)
+	}
+	if bid.TrustCheck != nil {
+		t.Fatalf("expected nil TrustCheck when the scorer panics, got %+v", bid.TrustCheck)
+	}
+}
+
 func TestSetAutoBidMaxTieBreaksByRegistrationOrder(t *testing.T) {
 	end := time.Now().Add(time.Hour)
 	s := newStoreWithIDFunc([]fixtures.Listing{
