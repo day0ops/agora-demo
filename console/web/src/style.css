@@ -776,6 +776,34 @@ textarea {
   color: var(--bad);
 }
 
+.inspector-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.inspector-table th {
+  text-align: left;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.inspector-table td {
+  padding: 10px 8px;
+}
+.execution-timeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+}
+.execution-timeline-arrow {
+  color: var(--muted);
+}
+
 .site-footer {
   flex: none;
   display: flex;
