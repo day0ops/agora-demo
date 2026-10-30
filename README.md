@@ -7,7 +7,7 @@ A live buy/sell + auction marketplace demo for kagent Agent Substrate + agentgat
 
 This repository holds the application tier: the catalog backend, the purpose-built MCP servers, and the marketplace console. The deployment glue that runs it on a cluster lives in [`agentic-field-kit`](https://github.com/day0ops/agentic-field-kit).
 
-**Status: work in progress.** The design is fully specified; `catalog-api`, `fixtures`, `bids-mcp`, and `pricing-mcp` are built out. Two MCP server adapters and the marketplace console are not yet implemented.
+**Status: work in progress.** The design is fully specified; `catalog-api`, `fixtures`, `bids-mcp`, `pricing-mcp`, and `orders-mcp` are built out. One MCP server adapter and the marketplace console are not yet implemented.
 
 ## Components
 
@@ -17,8 +17,8 @@ This repository holds the application tier: the catalog backend, the purpose-bui
 | `catalog-api/` | REST API owning all listings/bids/orders domain data. Its OpenAPI surface is wrapped into `listings-mcp` by agentgateway directly, with no MCP server code | Done |
 | `mcp-servers/bids-mcp/` | MCP server: place/withdraw bids, set a standing auto-bid ceiling, bid history, current price. A thin client over `catalog-api` - holds no data of its own | Done |
 | `mcp-servers/pricing-mcp/` | MCP server: `suggest_price` for sellers - real comps from `catalog-api`'s sold listings, falling back to a static baseline with no sales history yet | Done |
+| `mcp-servers/orders-mcp/` | MCP server: `checkout`, `get_order`, `list_orders` - a thin client over `catalog-api`'s checkout/orders endpoints | Done |
 | `mcp-servers/trust-mcp/` | MCP server: fraud/counterfeit/shill-bid signals, backed by a fast Jev risk score | Not started |
-| `mcp-servers/orders-mcp/` | MCP server: order status, simulated checkout | Not started |
 | `console/` | Marketplace console: Go backend + web SPA with buyer (`/shop`), seller (`/sell`), and operator (`/ops`) views | Not started |
 
 ## catalog-api

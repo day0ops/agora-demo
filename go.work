@@ -4,5 +4,6 @@ use (
 	./catalog-api
 	./fixtures
 	./mcp-servers/bids-mcp
+	./mcp-servers/orders-mcp
 	./mcp-servers/pricing-mcp
 )

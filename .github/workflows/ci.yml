@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  GO_MODULES: ./fixtures/... ./catalog-api/... ./mcp-servers/bids-mcp/... ./mcp-servers/pricing-mcp/...
+  GO_MODULES: ./fixtures/... ./catalog-api/... ./mcp-servers/bids-mcp/... ./mcp-servers/pricing-mcp/... ./mcp-servers/orders-mcp/...
 
 jobs:
   lint-test-go:
