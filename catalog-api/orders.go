@@ -21,12 +21,25 @@ type OrderFilter struct {
 	SellerID string
 }
 
-// Checkout creates an order for a listing that is purchasable right now:
-// either an active buy-now listing (at its PriceCents, which also
-// transitions it to Sold), or a closed, won auction (at its
-// CurrentBidCents, and only by the buyer who actually holds the winning
-// bid). A listing can only ever be checked out once.
+// Checkout creates an order for a listing with no correlation id, the shape
+// every existing (human, UI-driven) caller uses. See CheckoutWithCorrelation
+// for the full behavior.
 func (s *Store) Checkout(listingID, buyerID string) (fixtures.Order, error) {
+	return s.CheckoutWithCorrelation(listingID, buyerID, "")
+}
+
+// CheckoutWithCorrelation creates an order for a listing that is purchasable
+// right now, recording correlationID on the resulting Order: either an
+// active buy-now listing (at its PriceCents, which also transitions it to
+// Sold), or a closed, won auction (at its CurrentBidCents, and only by the
+// buyer who actually holds the winning bid). A listing can only ever be
+// checked out once.
+//
+// correlationID is empty for every caller today (no agent is wired to this
+// API yet) - this parameter exists so a future real agent-driven caller can
+// pass one through without a breaking signature change once that wiring
+// lands. See fixtures.Order.CorrelationID.
+func (s *Store) CheckoutWithCorrelation(listingID, buyerID, correlationID string) (fixtures.Order, error) {
 	if buyerID == "" {
 		return fixtures.Order{}, fmt.Errorf("checkout %s: %w", listingID, ErrBuyerIDRequired)
 	}
@@ -69,6 +82,7 @@ func (s *Store) Checkout(listingID, buyerID string) (fixtures.Order, error) {
 		FinalPriceCents: finalPriceCents,
 		Status:          fixtures.OrderStatusPending,
 		CreatedAt:       s.now(),
+		CorrelationID:   correlationID,
 	}
 	s.orders[order.ID] = order
 	return order, nil

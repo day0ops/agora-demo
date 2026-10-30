@@ -89,6 +89,10 @@ func handleCreateListing(store *Store) http.HandlerFunc {
 type placeBidRequest struct {
 	BuyerID     string `json:"buyerId"`
 	AmountCents int64  `json:"amountCents"`
+	// CorrelationID is empty for every caller today (no agent is wired to
+	// this API yet) - accepted now so a future real agent-driven caller can
+	// set it without an API change once that wiring lands.
+	CorrelationID string `json:"correlationId,omitempty"`
 }
 
 func handlePlaceBid(store *Store) http.HandlerFunc {
@@ -98,7 +102,7 @@ func handlePlaceBid(store *Store) http.HandlerFunc {
 			writeBadRequest(w, err)
 			return
 		}
-		bid, err := store.PlaceBid(r.PathValue("id"), req.BuyerID, req.AmountCents)
+		bid, err := store.PlaceBidWithCorrelation(r.PathValue("id"), req.BuyerID, req.AmountCents, req.CorrelationID)
 		if err != nil {
 			writeStoreError(w, err)
 			return

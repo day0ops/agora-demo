@@ -165,6 +165,34 @@ func TestCheckoutUnknownListingRejected(t *testing.T) {
 	}
 }
 
+func TestCheckoutDefaultsToEmptyCorrelationID(t *testing.T) {
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", SellerID: "seller-1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow, PriceCents: 1000},
+	}, nil, nil)
+
+	order, err := s.Checkout("l1", "buyer-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if order.CorrelationID != "" {
+		t.Fatalf("expected Checkout (no agent wired) to leave CorrelationID empty, got %q", order.CorrelationID)
+	}
+}
+
+func TestCheckoutWithCorrelationSetsCorrelationID(t *testing.T) {
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", SellerID: "seller-1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow, PriceCents: 1000},
+	}, nil, nil)
+
+	order, err := s.CheckoutWithCorrelation("l1", "buyer-1", "exec-456")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if order.CorrelationID != "exec-456" {
+		t.Fatalf("expected CorrelationID %q, got %q", "exec-456", order.CorrelationID)
+	}
+}
+
 func TestGetOrderNotFound(t *testing.T) {
 	s := testStore(t)
 	_, err := s.GetOrder("missing")

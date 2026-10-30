@@ -304,11 +304,24 @@ func (s *Store) scoreBidRisk(listingID, buyerID string, amountCents, listingPric
 	}
 }
 
-// PlaceBid places a manual bid against an open auction listing. The first
-// bid on a listing must meet or exceed its starting price; every bid after
-// that must strictly exceed the current price. On success, the listing's
-// CurrentBidCents is updated to amountCents.
+// PlaceBid places a manual bid against an open auction listing with no
+// correlation id, the shape every existing (human, UI-driven) caller uses.
+// See PlaceBidWithCorrelation for the full behavior.
 func (s *Store) PlaceBid(listingID, buyerID string, amountCents int64) (fixtures.Bid, error) {
+	return s.PlaceBidWithCorrelation(listingID, buyerID, amountCents, "")
+}
+
+// PlaceBidWithCorrelation places a manual bid against an open auction
+// listing, recording correlationID on the resulting Bid. The first bid on a
+// listing must meet or exceed its starting price; every bid after that must
+// strictly exceed the current price. On success, the listing's
+// CurrentBidCents is updated to amountCents.
+//
+// correlationID is empty for every caller today (no agent is wired to this
+// API yet) - this parameter exists so a future real agent-driven caller can
+// pass one through without a breaking signature change once that wiring
+// lands. See fixtures.Bid.CorrelationID.
+func (s *Store) PlaceBidWithCorrelation(listingID, buyerID string, amountCents int64, correlationID string) (fixtures.Bid, error) {
 	if buyerID == "" {
 		return fixtures.Bid{}, fmt.Errorf("place bid on %s: %w", listingID, ErrBuyerIDRequired)
 	}
@@ -337,12 +350,13 @@ func (s *Store) PlaceBid(listingID, buyerID string, amountCents int64) (fixtures
 	}
 
 	bid := fixtures.Bid{
-		ID:          s.newID("bid"),
-		ListingID:   listingID,
-		BuyerID:     buyerID,
-		AmountCents: amountCents,
-		PlacedAt:    s.now(),
-		TrustCheck:  s.scoreBidRisk(listingID, buyerID, amountCents, l.PriceCents),
+		ID:            s.newID("bid"),
+		ListingID:     listingID,
+		BuyerID:       buyerID,
+		AmountCents:   amountCents,
+		PlacedAt:      s.now(),
+		TrustCheck:    s.scoreBidRisk(listingID, buyerID, amountCents, l.PriceCents),
+		CorrelationID: correlationID,
 	}
 	s.bids[listingID] = append(s.bids[listingID], bid)
 	l.CurrentBidCents = amountCents

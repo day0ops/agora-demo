@@ -835,6 +835,36 @@ func TestPlaceBidTrustCheckNilWhenScorerPanics(t *testing.T) {
 	}
 }
 
+func TestPlaceBidDefaultsToEmptyCorrelationID(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	bid, err := s.PlaceBid("l1", "buyer-1", 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bid.CorrelationID != "" {
+		t.Fatalf("expected PlaceBid (no agent wired) to leave CorrelationID empty, got %q", bid.CorrelationID)
+	}
+}
+
+func TestPlaceBidWithCorrelationSetsCorrelationID(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	bid, err := s.PlaceBidWithCorrelation("l1", "buyer-1", 1000, "exec-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bid.CorrelationID != "exec-123" {
+		t.Fatalf("expected CorrelationID %q, got %q", "exec-123", bid.CorrelationID)
+	}
+}
+
 func TestSetAutoBidMaxTieBreaksByRegistrationOrder(t *testing.T) {
 	end := time.Now().Add(time.Hour)
 	s := newStoreWithIDFunc([]fixtures.Listing{

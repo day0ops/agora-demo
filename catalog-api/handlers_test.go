@@ -201,6 +201,27 @@ func TestHandlePlaceBidConflict(t *testing.T) {
 	}
 }
 
+func TestHandlePlaceBidPlumbsOptionalCorrelationID(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	bidBody, err := json.Marshal(placeBidRequest{BuyerID: "buyer-1", AmountCents: 1500, CorrelationID: "exec-789"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/listings/l1/bids", "application/json", bytes.NewReader(bidBody))
+	if err != nil {
+		t.Fatalf("POST /listings/l1/bids: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", resp.StatusCode)
+	}
+	bid := decodeJSON[fixtures.Bid](t, resp)
+	if bid.CorrelationID != "exec-789" {
+		t.Fatalf("expected CorrelationID %q, got %q", "exec-789", bid.CorrelationID)
+	}
+}
+
 func TestHandleSetAutoBidMax(t *testing.T) {
 	end := time.Now().Add(time.Hour)
 	store := newStoreWithIDFunc(
@@ -305,6 +326,35 @@ func TestHandleCheckoutBuyNowAndGetOrder(t *testing.T) {
 	fetched := decodeJSON[fixtures.Order](t, getResp)
 	if fetched.ID != order.ID {
 		t.Fatalf("expected to fetch the same order, got %+v", fetched)
+	}
+}
+
+func TestHandleCheckoutPlumbsOptionalCorrelationID(t *testing.T) {
+	store := newStoreWithIDFunc(
+		[]fixtures.Listing{
+			{ID: "l2", SellerID: "seller-1", Type: fixtures.ListingTypeBuyNow, Status: fixtures.ListingStatusActiveBuyNow, PriceCents: 4500},
+		},
+		nil,
+		func(prefix string) string { return prefix + "-generated" },
+	)
+	srv := httptest.NewServer(NewMux(store))
+	t.Cleanup(srv.Close)
+
+	body, err := json.Marshal(checkoutRequest{BuyerID: "buyer-1", CorrelationID: "exec-999"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	resp, err := http.Post(srv.URL+"/listings/l2/checkout", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /listings/l2/checkout: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", resp.StatusCode)
+	}
+	order := decodeJSON[fixtures.Order](t, resp)
+	if order.CorrelationID != "exec-999" {
+		t.Fatalf("expected CorrelationID %q, got %q", "exec-999", order.CorrelationID)
 	}
 }
 

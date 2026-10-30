@@ -4,6 +4,10 @@ import "net/http"
 
 type checkoutRequest struct {
 	BuyerID string `json:"buyerId"`
+	// CorrelationID is empty for every caller today (no agent is wired to
+	// this API yet) - accepted now so a future real agent-driven caller can
+	// set it without an API change once that wiring lands.
+	CorrelationID string `json:"correlationId,omitempty"`
 }
 
 func handleCheckout(store *Store) http.HandlerFunc {
@@ -13,7 +17,7 @@ func handleCheckout(store *Store) http.HandlerFunc {
 			writeBadRequest(w, err)
 			return
 		}
-		order, err := store.Checkout(r.PathValue("id"), req.BuyerID)
+		order, err := store.CheckoutWithCorrelation(r.PathValue("id"), req.BuyerID, req.CorrelationID)
 		if err != nil {
 			writeStoreError(w, err)
 			return
