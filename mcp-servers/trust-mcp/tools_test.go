@@ -9,16 +9,17 @@ import (
 	"testing"
 
 	"github.com/day0ops/agora-demo/fixtures"
+	"github.com/day0ops/agora-demo/trust-scoring"
 )
 
 // stubScorer lets tests control ScoreBidRisk's result without exercising the
 // real heuristic, so tool-wiring tests stay independent of scoring logic.
 type stubScorer struct {
-	result RiskScore
+	result trustscoring.RiskScore
 	err    error
 }
 
-func (s stubScorer) ScoreBidRisk(context.Context, BidRiskInput) (RiskScore, error) {
+func (s stubScorer) ScoreBidRisk(context.Context, trustscoring.BidRiskInput) (trustscoring.RiskScore, error) {
 	return s.result, s.err
 }
 
@@ -35,7 +36,7 @@ func TestScoreBidRiskToolHappyPath(t *testing.T) {
 
 	s := &server{
 		catalog: newCatalogClient(srv.URL),
-		scorer:  stubScorer{result: RiskScore{Score: 0.5, Reasons: []string{"test reason"}, ScoredBy: "heuristic"}},
+		scorer:  stubScorer{result: trustscoring.RiskScore{Score: 0.5, Reasons: []string{"test reason"}, ScoredBy: "heuristic"}},
 	}
 	_, out, err := s.scoreBidRiskTool(context.Background(), nil, ScoreBidRiskInput{ListingID: "l1", BuyerID: "buyer-1", AmountCents: 1500})
 	if err != nil {

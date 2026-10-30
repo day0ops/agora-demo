@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 
+	"github.com/day0ops/agora-demo/trust-scoring"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // server bundles the catalog client and risk scorer each tool needs.
 type server struct {
 	catalog *catalogClient
-	scorer  RiskScorer
+	scorer  trustscoring.RiskScorer
 }
 
 type ScoreBidRiskInput struct {
@@ -18,8 +19,8 @@ type ScoreBidRiskInput struct {
 	AmountCents int64  `json:"amount_cents" jsonschema:"the candidate bid amount, in cents"`
 }
 type ScoreBidRiskOutput struct {
-	Risk  RiskScore `json:"risk,omitzero" jsonschema:"the risk assessment, if the lookup succeeded"`
-	Error string    `json:"error,omitempty" jsonschema:"set instead of risk if the listing or its bid history could not be looked up"`
+	Risk  trustscoring.RiskScore `json:"risk,omitzero" jsonschema:"the risk assessment, if the lookup succeeded"`
+	Error string                 `json:"error,omitempty" jsonschema:"set instead of risk if the listing or its bid history could not be looked up"`
 }
 
 func (s *server) scoreBidRiskTool(
@@ -41,7 +42,7 @@ func (s *server) scoreBidRiskTool(
 		return nil, ScoreBidRiskOutput{}, err
 	}
 
-	risk, err := s.scorer.ScoreBidRisk(ctx, BidRiskInput{
+	risk, err := s.scorer.ScoreBidRisk(ctx, trustscoring.BidRiskInput{
 		ListingID:         in.ListingID,
 		BuyerID:           in.BuyerID,
 		AmountCents:       in.AmountCents,

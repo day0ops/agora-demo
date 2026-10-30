@@ -4,8 +4,11 @@ go 1.27.0
 
 replace github.com/day0ops/agora-demo/fixtures => ../../fixtures
 
+replace github.com/day0ops/agora-demo/trust-scoring => ../../trust-scoring
+
 require (
 	github.com/day0ops/agora-demo/fixtures v0.0.0-00010101000000-000000000000
+	github.com/day0ops/agora-demo/trust-scoring v0.0.0-00010101000000-000000000000
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 )
 

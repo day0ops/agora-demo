@@ -8,4 +8,5 @@ use (
 	./mcp-servers/orders-mcp
 	./mcp-servers/pricing-mcp
 	./mcp-servers/trust-mcp
+	./trust-scoring
 )

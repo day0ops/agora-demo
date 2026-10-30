@@ -1,4 +1,10 @@
-package main
+// Package trustscoring provides fraud/shill-bid risk assessment for a
+// candidate marketplace bid. Shared by trust-mcp (which exposes it as the
+// score_bid_risk agent tool) and catalog-api (which calls it in-process when
+// a bid is placed), so the same scoring logic backs both the automatic
+// trust-check recorded on every bid and any agent that calls the tool
+// directly.
+package trustscoring
 
 import (
 	"context"
@@ -41,9 +47,9 @@ type RiskScorer interface {
 	ScoreBidRisk(ctx context.Context, in BidRiskInput) (RiskScore, error)
 }
 
-// NewScorer returns the risk scorer this server uses. Currently always the
-// heuristic scorer -- see the RiskScorer doc comment for the intended
-// Jev-backed extension point.
+// NewScorer returns the default risk scorer. Currently always the heuristic
+// scorer -- see the RiskScorer doc comment for the intended Jev-backed
+// extension point.
 func NewScorer() RiskScorer {
 	return NewHeuristicScorer()
 }

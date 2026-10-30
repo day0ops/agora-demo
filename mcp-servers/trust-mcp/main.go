@@ -3,9 +3,9 @@
 // as agent tools. It holds no marketplace data of its own -- every tool call
 // reads live from catalog-api.
 //
-// score_bid_risk's scoring is pluggable (see risk_scorer.go): today it is a
-// local heuristic, deliberately not a fabricated integration with an
-// unverified third-party API.
+// score_bid_risk's scoring is pluggable (see the trust-scoring module):
+// today it is a local heuristic, deliberately not a fabricated integration
+// with an unverified third-party API.
 package main
 
 import (
@@ -14,6 +14,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/day0ops/agora-demo/trust-scoring"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -28,7 +29,7 @@ func envOr(key, fallback string) string {
 
 func main() {
 	catalogAPIURL := envOr("CATALOG_API_URL", "http://catalog-api:8080")
-	s := &server{catalog: newCatalogClient(catalogAPIURL), scorer: NewScorer()}
+	s := &server{catalog: newCatalogClient(catalogAPIURL), scorer: trustscoring.NewScorer()}
 
 	mcpServer := mcp.NewServer(&mcp.Implementation{Name: serverName, Version: "0.1.0"}, nil)
 	mcp.AddTool(mcpServer, &mcp.Tool{
