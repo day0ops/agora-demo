@@ -1,10 +1,10 @@
 /* === TOKENS === */
 /* Palette and type pulled from cursor.com's own shipped CSS: a warm
    near-black (not pure black) with pure-white text in dark mode, a warm
-   off-white with near-black text in light mode, and a single vivid orange
-   accent (darker in light mode for contrast) rather than a multi-color
-   system. Their body/display typeface and mono are proprietary; Geist and
-   JetBrains Mono are the closest openly-licensed equivalents. */
+   off-white with near-black text in light mode, and a single vivid accent
+   rather than a multi-color system. Their body/display typeface and mono
+   are proprietary; Geist and JetBrains Mono are the closest openly-licensed
+   equivalents. */
 :root {
   --bg: #14120b;
   --surface: #1d1b15;
@@ -12,11 +12,15 @@
   --border: #26251e;
   --text: #ffffff;
   --muted: #938f82;
-  /* Brand orange f54e00 measures 3.52:1 for white text, below the 4.5:1 AA
-     floor; darkened to d04200 (same hue/saturation) to clear it. */
-  --accent: #d04200;
-  --accent-strong: #ff6a1f;
-  --accent-ink: #ffffff;
+  /* A light, warm gold rather than the original orange - bright enough that
+     white text on it fails contrast outright, so --accent-ink flips to a
+     dark ink here instead (11.6:1, see below). --fill-ink stays white for
+     the other solid-fill colors (danger/secondary/sold-stamp), which are
+     dark/saturated enough in both themes not to need the same flip. */
+  --accent: #f2c744;
+  --accent-strong: #ffd966;
+  --accent-ink: #14120b;
+  --fill-ink: #ffffff;
   --accent-2: #1f8a65;
   --ok: #1f8a65;
   --warn: #f54e00;
@@ -33,16 +37,16 @@
 }
 
 /* WCAG AA contrast, computed from sRGB relative luminance:
-   dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 4.71:1
-   light - text/bg 17.41:1, text/surface 18.69:1, accent-ink/accent 5.18:1
+   dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 11.64:1
+   light - text/bg 17.41:1, text/surface 18.69:1, accent-ink/accent 5.19:1
    muted clears 4.5:1 against both bg and surface in both themes.
    All pairs meet the 4.5:1 body-text floor.
 
    Status pill text (ok/warn/idle/info/bad/accent) sits on its own 15%-tinted
    chip background, not on bg/surface directly - the raw status hue there
-   measured as low as 3.2:1 (accent, dark), below the floor. Mixing each
-   status color 70% with --text brings every variant to 5:1 or better in
-   both themes; see .pill.* below. */
+   measured as low as 3.2:1 (accent, dark, pre-gold), below the floor. Mixing
+   each status color 70% with --text brings every variant to 5:1 or better
+   in both themes; see .pill.* below. */
 html[data-theme="light"] {
   --bg: #f7f7f4;
   --surface: #ffffff;
@@ -50,9 +54,13 @@ html[data-theme="light"] {
   --border: #e0ded6;
   --text: #141210;
   --muted: #6b6760;
-  --accent: #c2410c;
-  --accent-strong: #9a3412;
+  /* A deep amber/bronze rather than the dark theme's light gold - a bright
+     yellow reads as washed-out on an already-light background, and this
+     stays dark enough to pair with white text at 5.19:1. */
+  --accent: #96620a;
+  --accent-strong: #754b08;
   --accent-ink: #ffffff;
+  --fill-ink: #ffffff;
   --accent-2: #1a7f37;
   --ok: #15803d;
   --warn: #b45309;
@@ -196,7 +204,7 @@ button.ghost:hover {
 }
 button.danger {
   background: var(--bad);
-  color: var(--accent-ink);
+  color: var(--fill-ink);
 }
 button.danger:hover {
   background: var(--bad);
@@ -204,7 +212,7 @@ button.danger:hover {
 }
 button.secondary {
   background: var(--accent-2);
-  color: var(--accent-ink);
+  color: var(--fill-ink);
 }
 button.secondary:hover {
   background: var(--accent-2);
@@ -491,7 +499,7 @@ button.link:hover {
   top: 0;
   right: 0;
   background: var(--bad);
-  color: var(--accent-ink);
+  color: var(--fill-ink);
   font-weight: 700;
   font-size: 12.5px;
   letter-spacing: 0.5px;
