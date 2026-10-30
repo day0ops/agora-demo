@@ -87,6 +87,10 @@ Every sold listing, order, and relevant activity-feed entry on the Shop and Ops 
 
 Keyboard behavior is verified: `role="dialog"` with `aria-modal`, focus moves into the drawer on open and is trapped within it on Tab/Shift+Tab, and Escape closes the drawer and restores focus to the trigger that opened it.
 
+### Operator Studio Agent Substrate panel
+
+The Ops view (`/ops.html`) has an "Agent Substrate" panel (`console/web/src/components/substrateTopology.ts`) showing the real column shape a live actor-status table will have - Actor, State, Pool, Last activity - and, like the drawer's Technical Inspector, is honestly empty today: `substrateAdapter.ts`'s `getSubstrateStatus()` always resolves "empty" because no live Agent Substrate cluster is wired to this console yet. The body renders the same not-connected banner spanning all four columns rather than fabricated rows, and needs no caller changes once a real adapter is wired in. Verified responsive at both desktop (1280px) and mobile (390px) widths with no overflow or clipping.
+
 ## Development
 
 ```bash
