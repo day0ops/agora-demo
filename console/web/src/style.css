@@ -223,6 +223,10 @@ button.link:hover {
   background: color-mix(in srgb, var(--bad) 15%, transparent);
   color: var(--bad);
 }
+.pill.accent {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
 
 .panel {
   background: var(--surface);
@@ -906,6 +910,48 @@ textarea {
   font-size: 14.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Sell page - the create-listing form reads as a two-step flow (draft, then
+   review) without a wizard component: a small step label precedes each half,
+   and a top border marks where review begins. */
+.form-step-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.assist-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+}
+.assist-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.assist-card .empty-state {
+  padding: 16px 14px;
+}
+.review-step {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.review-step .form-step-label {
+  margin-bottom: 4px;
+}
+.review-step-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+.pro-badge {
+  margin-bottom: 8px;
 }
 
 /* Shop page */

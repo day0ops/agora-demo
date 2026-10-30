@@ -6,8 +6,9 @@ import { listListings, createListing, ApiError } from "./api";
 import { SELLERS } from "./identities";
 import { escapeHtml } from "./html";
 import { getStored, setStored } from "./storage";
-import { formatCents } from "./format";
-import { statusPill } from "./components/statusPill";
+import { lotCard } from "./components/lotCard";
+import { emptyState } from "./components/emptyState";
+import { icons } from "./icons";
 import type { Listing, ListingType, MarketplaceEvent } from "./types";
 
 const AUCTION_DURATIONS = [
@@ -33,6 +34,7 @@ app.innerHTML = `
       <div class="panel-stack">
         <div class="panel" id="create-panel">
           <h2>New listing</h2>
+          <div class="form-step-label">Step 1 &middot; Draft details</div>
           <form id="create-form">
             <label for="f-title">Title</label>
             <input id="f-title" required />
@@ -53,12 +55,35 @@ app.innerHTML = `
             </div>
             <label for="f-price">Price ($)</label>
             <input id="f-price" type="number" min="0.01" step="0.01" required />
-            <button type="submit" class="create-submit">Create Listing</button>
+
+            <div class="assist-stack">
+              <div class="assist-card">
+                ${emptyState({
+                  title: "Recommended pricing",
+                  body: "Price suggestions appear here once the pricing assistant is connected to a live agent cluster.",
+                  icon: icons.tag,
+                })}
+              </div>
+              <div class="assist-card">
+                ${emptyState({
+                  title: "Comparable items",
+                  body: "Similar listings and recent sale prices appear here once the pricing assistant is connected to a live agent cluster.",
+                  icon: icons.gavel,
+                })}
+              </div>
+            </div>
+
+            <div class="review-step">
+              <div class="form-step-label">Step 2 &middot; Review &amp; publish</div>
+              <p class="review-step-note">Confirm the details above, then publish your listing.</p>
+              <button type="submit" class="create-submit">Create Listing</button>
+            </div>
             <div class="note" id="create-error"></div>
           </form>
         </div>
         <div class="panel chat-panel">
           <h2>Pricing Assistant</h2>
+          <div id="pro-badge-row"></div>
           <div id="chat-mount" class="chat-mount"></div>
         </div>
       </div>
@@ -80,13 +105,25 @@ sellerSelect.innerHTML = SELLERS.map(
   (s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`,
 ).join("");
 sellerSelect.value = getStored("mktSellerId") || SELLERS[0].id;
-sellerSelect.addEventListener("change", () => {
-  setStored("mktSellerId", sellerSelect.value);
-  void loadListings();
-});
 function currentSellerId(): string {
   return sellerSelect.value;
 }
+
+const proBadgeRow = document.querySelector<HTMLDivElement>("#pro-badge-row")!;
+function renderProBadge(): void {
+  const seller = SELLERS.find((s) => s.id === currentSellerId());
+  proBadgeRow.innerHTML =
+    seller?.tier === "pro"
+      ? '<span class="pill accent pro-badge">Pro pricing assistant</span>'
+      : "";
+}
+renderProBadge();
+
+sellerSelect.addEventListener("change", () => {
+  setStored("mktSellerId", sellerSelect.value);
+  renderProBadge();
+  void loadListings();
+});
 
 const listings = new Map<string, Listing>();
 const grid = document.querySelector<HTMLDivElement>("#listing-grid")!;
@@ -100,25 +137,6 @@ const STATUS_RANK: Record<string, number> = {
   withdrawn: 4,
 };
 
-function priceFor(l: Listing): number {
-  return l.type === "auction"
-    ? l.currentBidCents || l.priceCents
-    : l.priceCents;
-}
-
-function renderCard(l: Listing): string {
-  return `
-    <div class="card">
-      <div class="title">${escapeHtml(l.title)}</div>
-      <div class="meta">${escapeHtml(l.category)} &middot; ${l.type === "auction" ? "Auction" : "Buy now"}</div>
-      <div class="price">${formatCents(priceFor(l))}</div>
-      <div class="foot">
-        ${statusPill(l.status)}
-      </div>
-    </div>
-  `;
-}
-
 function renderGrid(): void {
   const mine = [...listings.values()]
     .filter((l) => l.sellerId === currentSellerId())
@@ -129,8 +147,12 @@ function renderGrid(): void {
       return a.createdAt < b.createdAt ? 1 : -1;
     });
   grid.innerHTML = mine.length
-    ? mine.map(renderCard).join("")
-    : '<div class="empty">No listings yet - create one.</div>';
+    ? mine.map((l) => lotCard(l)).join("")
+    : emptyState({
+        title: "No listings yet",
+        body: "Create a listing below to see it appear here.",
+        icon: icons.sell,
+      });
 }
 
 async function loadListings(): Promise<void> {
@@ -141,7 +163,11 @@ async function loadListings(): Promise<void> {
     mine.forEach((l) => listings.set(l.id, l));
     renderGrid();
   } catch {
-    grid.innerHTML = '<div class="empty">Could not reach catalog-api.</div>';
+    grid.innerHTML = emptyState({
+      title: "Catalog unavailable",
+      body: "Could not reach catalog-api. Try refreshing in a moment.",
+      icon: icons.sell,
+    });
   }
 }
 
