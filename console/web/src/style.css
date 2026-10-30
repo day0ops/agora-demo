@@ -834,6 +834,9 @@ textarea {
   color: var(--bad);
 }
 
+.inspector-table-wrap {
+  overflow-x: auto;
+}
 .inspector-table {
   width: 100%;
   border-collapse: collapse;

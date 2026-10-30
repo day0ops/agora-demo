@@ -14,10 +14,12 @@ export function technicalInspector(
   const header = `<tr>${COLUMNS.map((c) => `<th>${c}</th>`).join("")}</tr>`;
   if (result.status === "empty") {
     return `
-      <table class="inspector-table">
-        <thead>${header}</thead>
-        <tbody><tr><td colspan="${COLUMNS.length}">${notConnectedBanner(result.reason)}</td></tr></tbody>
-      </table>
+      <div class="inspector-table-wrap">
+        <table class="inspector-table">
+          <thead>${header}</thead>
+          <tbody><tr><td colspan="${COLUMNS.length}">${notConnectedBanner(result.reason)}</td></tr></tbody>
+        </table>
+      </div>
     `;
   }
   const rows = result.data.steps
@@ -26,5 +28,5 @@ export function technicalInspector(
         `<tr><td>${escapeHtml(s.actor)}</td><td>${escapeHtml(s.state)}</td><td>${escapeHtml(s.pool)}</td><td>${escapeHtml(s.mcpCall)}</td><td>${escapeHtml(s.policy)}</td></tr>`,
     )
     .join("");
-  return `<table class="inspector-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+  return `<div class="inspector-table-wrap"><table class="inspector-table"><thead>${header}</thead><tbody>${rows}</tbody></table></div>`;
 }
