@@ -84,6 +84,14 @@ body {
   flex: 1;
   min-height: 0;
 }
+/* Every page wraps its content in one <main>; growing it (not its
+   children - .layout/.panel etc. keep their own content height) pins the
+   footer to the bottom of the viewport on short pages without reintroducing
+   the internal-panel stretching this layout deliberately avoids elsewhere. */
+#app > main {
+  flex: 1;
+  min-height: 0;
+}
 
 a {
   color: inherit;
