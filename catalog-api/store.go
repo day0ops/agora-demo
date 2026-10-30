@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,6 +43,31 @@ var idCounter atomic.Int64
 // time-based ID risks collisions that a counter cannot.
 func newDefaultID(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, idCounter.Add(1))
+}
+
+// seedIDFloor scans seeded IDs for the highest numeric suffix (fixtures.Seed
+// hardcodes IDs like "listing-1") so NewStore can raise idCounter above it
+// before generating any real ID. Without this, idCounter's zero start value
+// made the very first listing/bid/order created after startup collide with
+// a seeded ID and silently overwrite it.
+func seedIDFloor(listings []fixtures.Listing, bids []fixtures.Bid) int64 {
+	var max int64
+	consider := func(id string) {
+		idx := strings.LastIndexByte(id, '-')
+		if idx < 0 {
+			return
+		}
+		if n, err := strconv.ParseInt(id[idx+1:], 10, 64); err == nil && n > max {
+			max = n
+		}
+	}
+	for _, l := range listings {
+		consider(l.ID)
+	}
+	for _, b := range bids {
+		consider(b.ID)
+	}
+	return max
 }
 
 // bidIncrementCents is the flat amount proxy bidding settles one bid above
@@ -77,6 +104,9 @@ type Store struct {
 
 // NewStore returns a Store seeded with the given listings and bids.
 func NewStore(listings []fixtures.Listing, bids []fixtures.Bid) *Store {
+	if floor := seedIDFloor(listings, bids); floor > idCounter.Load() {
+		idCounter.Store(floor)
+	}
 	return newStoreWithIDFunc(listings, bids, newDefaultID)
 }
 

@@ -713,6 +713,43 @@ func TestWithdrawBidClearsTheBuyersStandingCeiling(t *testing.T) {
 	}
 }
 
+// TestNewStoreGeneratedIDsDoNotCollideWithSeedIDs guards against the real ID
+// generator (newDefaultID, only exercised through the real NewStore - every
+// other test in this file injects a deterministic test ID func) starting
+// its counter at 0 and immediately colliding with fixtures.Seed()'s
+// hardcoded "listing-1" etc, which silently overwrote the seeded listing.
+func TestNewStoreGeneratedIDsDoNotCollideWithSeedIDs(t *testing.T) {
+	_, _, listings, bids := fixtures.Seed(time.Now())
+	s := NewStore(listings, bids)
+
+	before, err := s.GetListing("listing-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	created, err := s.CreateListing("seller-1", "New item", "desc", "misc", fixtures.ListingTypeBuyNow, 1000, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, l := range listings {
+		if created.ID == l.ID {
+			t.Fatalf("newly created listing ID %q collides with a seeded listing ID", created.ID)
+		}
+	}
+
+	after, err := s.GetListing("listing-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Compare fields rather than the whole struct: AuctionEndsAt is a
+	// *time.Time that GetListing clones on every call (copyListing), so two
+	// otherwise-identical reads always differ by pointer identity.
+	if after.Title != before.Title || after.PriceCents != before.PriceCents ||
+		after.CurrentBidCents != before.CurrentBidCents || after.Status != before.Status {
+		t.Fatalf("seeded listing-1 was mutated by creating an unrelated listing: before=%+v after=%+v", before, after)
+	}
+}
+
 func TestSetAutoBidMaxTieBreaksByRegistrationOrder(t *testing.T) {
 	end := time.Now().Add(time.Hour)
 	s := newStoreWithIDFunc([]fixtures.Listing{
