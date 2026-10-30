@@ -21,6 +21,7 @@ export interface Listing {
   currentBidCents: number;
   auctionEndsAt?: string;
   createdAt: string;
+  image?: string;
 }
 
 // Mirrors fixtures.Bid.

@@ -61,6 +61,10 @@ type Listing struct {
 	CurrentBidCents int64         `json:"currentBidCents"` // 0 until the first bid lands (auction only)
 	AuctionEndsAt   *time.Time    `json:"auctionEndsAt,omitempty"`
 	CreatedAt       time.Time     `json:"createdAt"`
+	// Image is a slug into the console's committed image set
+	// (console/web/public/images/listings/<Image>.jpg). Empty for
+	// user-created listings, which fall back to a category SVG.
+	Image string `json:"image,omitempty"`
 }
 
 // Bid is a single bid placed against an auction listing. IsAutoBid and

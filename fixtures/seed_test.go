@@ -65,6 +65,30 @@ func TestSeedReferentialIntegrity(t *testing.T) {
 	}
 }
 
+// TestSeedListingImageSlugs pins which seeded listings have a committed
+// photo. listing-5 intentionally has none - no cleanly public-domain/CC0
+// licensed photo of a signed 1998 World Series baseball was found (see
+// console/web/public/images/ATTRIBUTIONS.md) - and falls back to its
+// category's SVG at render time instead.
+func TestSeedListingImageSlugs(t *testing.T) {
+	_, _, listings, _ := Seed(time.Unix(0, 0).UTC())
+
+	want := map[string]string{
+		"listing-1": "rolex-submariner",
+		"listing-2": "dune-first-edition",
+		"listing-3": "nikon-f3",
+		"listing-4": "art-deco-lamp",
+		"listing-5": "",
+	}
+	for _, l := range listings {
+		if got, ok := want[l.ID]; !ok {
+			t.Errorf("listing %q not covered by this test's expectations", l.ID)
+		} else if l.Image != got {
+			t.Errorf("listing %q: Image = %q, want %q", l.ID, l.Image, got)
+		}
+	}
+}
+
 func TestSeedIsAnchoredToGivenTime(t *testing.T) {
 	anchor := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	_, _, listings, _ := Seed(anchor)

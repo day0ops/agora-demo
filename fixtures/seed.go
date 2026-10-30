@@ -38,6 +38,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid) {
 			CurrentBidCents: 520000,
 			AuctionEndsAt:   &closingSoon,
 			CreatedAt:       now.Add(-48 * time.Hour),
+			Image:           "rolex-submariner",
 		},
 		{
 			ID:              "listing-2",
@@ -51,6 +52,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &closingLater,
 			CreatedAt:       now.Add(-24 * time.Hour),
+			Image:           "dune-first-edition",
 		},
 		{
 			ID:          "listing-3",
@@ -62,6 +64,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid) {
 			Status:      ListingStatusActiveBuyNow,
 			PriceCents:  45000,
 			CreatedAt:   now.Add(-6 * time.Hour),
+			Image:       "nikon-f3",
 		},
 		{
 			ID:              "listing-4",
@@ -75,6 +78,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &endedUnsold,
 			CreatedAt:       now.Add(-14 * 24 * time.Hour),
+			Image:           "art-deco-lamp",
 		},
 		{
 			ID:              "listing-5",

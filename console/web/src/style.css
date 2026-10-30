@@ -313,6 +313,19 @@ button.link:hover {
   padding: 2px 7px;
   border-radius: 4px;
 }
+
+/* listing-image covers a fixed-ratio box regardless of the source photo's
+   own aspect ratio, so the grid stays aligned; category-SVG fallbacks sit on
+   --surface-2 since they have a transparent background. */
+.listing-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--surface-2);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
 .card .title {
   font-weight: 600;
   font-size: 15.5px;
