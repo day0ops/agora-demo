@@ -1,5 +1,5 @@
 import "./style.css";
-import { mountTopbar, mountFooter } from "./layout";
+import { mountNavbar, mountFooter } from "./components/navbar";
 import { connectEvents } from "./events";
 import { getStats, listListings } from "./api";
 import { escapeHtml } from "./html";
@@ -28,7 +28,7 @@ app.innerHTML = `
   <div id="footer"></div>
 `;
 
-mountTopbar(document.querySelector("#topbar")!, "ops");
+mountNavbar(document.querySelector("#topbar")!, "ops");
 mountFooter(document.querySelector("#footer")!);
 
 const listingTitles = new Map<string, string>();

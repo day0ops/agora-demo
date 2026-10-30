@@ -1,12 +1,13 @@
 import "./style.css";
-import { mountTopbar, mountFooter } from "./layout";
+import { mountNavbar, mountFooter } from "./components/navbar";
 import { mountChat } from "./chat";
 import { connectEvents } from "./events";
 import { listListings, createListing, ApiError } from "./api";
 import { SELLERS } from "./identities";
 import { escapeHtml } from "./html";
 import { getStored, setStored } from "./storage";
-import { formatCents, statusLabel, statusPillClass } from "./format";
+import { formatCents } from "./format";
+import { statusPill } from "./components/statusPill";
 import type { Listing, ListingType, MarketplaceEvent } from "./types";
 
 const AUCTION_DURATIONS = [
@@ -66,7 +67,7 @@ app.innerHTML = `
   <div id="footer"></div>
 `;
 
-mountTopbar(document.querySelector("#topbar")!, "sell");
+mountNavbar(document.querySelector("#topbar")!, "sell");
 mountFooter(document.querySelector("#footer")!);
 mountChat(
   document.querySelector("#chat-mount")!,
@@ -113,7 +114,7 @@ function renderCard(l: Listing): string {
       <div class="meta">${escapeHtml(l.category)} &middot; ${l.type === "auction" ? "Auction" : "Buy now"}</div>
       <div class="price">${formatCents(priceFor(l))}</div>
       <div class="foot">
-        <span class="pill ${statusPillClass(l.status)}">${statusLabel(l.status)}</span>
+        ${statusPill(l.status)}
       </div>
     </div>
   `;

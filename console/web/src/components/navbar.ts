@@ -1,5 +1,5 @@
-import { initTheme, toggleTheme } from "./theme";
-import { icons } from "./icons";
+import { initTheme, toggleTheme } from "../theme";
+import { icons } from "../icons";
 
 export const APP_NAME = "Agora";
 export const APP_VERSION = "0.1.0";
@@ -14,7 +14,25 @@ const NAV: { href: string; key: View; label: string }[] = [
 
 export const BRAND_LINK = `<a class="brand" href="/index.html">${icons.brand}${APP_NAME}</a>`;
 
-export function mountTopbar(root: HTMLElement, active: View): void {
+function setThemeToggleIcon(
+  button: HTMLButtonElement,
+  theme: "dark" | "light",
+): void {
+  button.innerHTML = theme === "dark" ? icons.moon : icons.sun;
+  button.setAttribute(
+    "aria-label",
+    theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+  );
+}
+
+export function mountThemeToggle(toggle: HTMLButtonElement): void {
+  initTheme((theme) => setThemeToggleIcon(toggle, theme));
+  toggle.addEventListener("click", () =>
+    toggleTheme((theme) => setThemeToggleIcon(toggle, theme)),
+  );
+}
+
+export function mountNavbar(root: HTMLElement, active: View): void {
   root.classList.add("topbar");
   root.innerHTML = `
     ${BRAND_LINK}
@@ -23,11 +41,7 @@ export function mountTopbar(root: HTMLElement, active: View): void {
     </nav>
     <button id="theme-toggle" class="ghost" type="button"></button>
   `;
-  const toggle = root.querySelector<HTMLButtonElement>("#theme-toggle")!;
-  initTheme((label) => (toggle.textContent = label));
-  toggle.addEventListener("click", () =>
-    toggleTheme((label) => (toggle.textContent = label)),
-  );
+  mountThemeToggle(root.querySelector<HTMLButtonElement>("#theme-toggle")!);
 }
 
 export function mountFooter(root: HTMLElement): void {

@@ -1,6 +1,5 @@
 import "./style.css";
-import { initTheme, toggleTheme } from "./theme";
-import { BRAND_LINK, mountFooter } from "./layout";
+import { BRAND_LINK, mountFooter, mountThemeToggle } from "./components/navbar";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
@@ -37,9 +36,5 @@ app.innerHTML = `
   <div id="footer"></div>
 `;
 
-const toggle = app.querySelector<HTMLButtonElement>("#theme-toggle")!;
-initTheme((label) => (toggle.textContent = label));
-toggle.addEventListener("click", () =>
-  toggleTheme((label) => (toggle.textContent = label)),
-);
+mountThemeToggle(app.querySelector<HTMLButtonElement>("#theme-toggle")!);
 mountFooter(app.querySelector("#footer")!);

@@ -1,5 +1,5 @@
 import "./style.css";
-import { mountTopbar, mountFooter } from "./layout";
+import { mountNavbar, mountFooter } from "./components/navbar";
 import { mountChat } from "./chat";
 import { connectEvents } from "./events";
 import {
@@ -16,13 +16,8 @@ import {
 import { BUYERS } from "./identities";
 import { escapeHtml } from "./html";
 import { getStored, setStored } from "./storage";
-import {
-  formatCents,
-  formatCountdown,
-  lotNumber,
-  statusLabel,
-  statusPillClass,
-} from "./format";
+import { formatCents, formatCountdown, lotNumber } from "./format";
+import { statusPill } from "./components/statusPill";
 import type { Listing, Bid, Order, MarketplaceEvent } from "./types";
 
 const URGENT_THRESHOLD_MS = 60_000;
@@ -59,7 +54,7 @@ app.innerHTML = `
   <div id="footer"></div>
 `;
 
-mountTopbar(document.querySelector("#topbar")!, "shop");
+mountNavbar(document.querySelector("#topbar")!, "shop");
 mountFooter(document.querySelector("#footer")!);
 mountChat(
   document.querySelector("#chat-mount")!,
@@ -110,7 +105,7 @@ function renderCard(l: Listing): string {
       <div class="meta">${escapeHtml(l.category)}</div>
       <div class="price">${formatCents(priceFor(l))}</div>
       <div class="foot">
-        <span class="pill ${statusPillClass(l.status)}">${statusLabel(l.status)}</span>
+        ${statusPill(l.status)}
         ${countdown}
       </div>
     </div>
@@ -172,7 +167,7 @@ async function renderDetail(): Promise<void> {
       <p class="desc">${escapeHtml(listing.description)}</p>
       <div class="price-row">
         <span class="price">${formatCents(price)}</span>
-        <span class="pill ${statusPillClass(listing.status)}">${statusLabel(listing.status)}</span>
+        ${statusPill(listing.status)}
       </div>
       ${
         isAuction
