@@ -20,12 +20,12 @@ const AUCTION_DURATIONS = [
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
-  <div id="topbar"></div>
-  <div class="page">
-    <div class="identity-picker">
+  <header id="topbar"></header>
+  <main class="page">
+    <label class="identity-picker" for="seller-select">
       Selling as
       <select id="seller-select"></select>
-    </div>
+    </label>
     <div class="layout">
       <div class="panel">
         <h2>My listings</h2>
@@ -88,8 +88,8 @@ app.innerHTML = `
         </div>
       </div>
     </div>
-  </div>
-  <div id="footer"></div>
+  </main>
+  <footer id="footer"></footer>
 `;
 
 mountNavbar(document.querySelector("#topbar")!, "sell");

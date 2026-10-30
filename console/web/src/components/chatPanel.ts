@@ -39,8 +39,9 @@ export function mountChatPanel(
     }
     <div class="chat-panel-collapse${expanded ? "" : " collapsed"}" id="chat-collapse">
       <div>
-        <div class="chat-log" id="chat-log"></div>
+        <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
         <form id="chat-form" class="chat-form">
+          <label class="sr-only" for="chat-input">Message ${escapeHtml(label)}</label>
           <textarea id="chat-input" class="chat-input" rows="2" placeholder="Ask ${escapeHtml(label)}... (Enter to send, Shift+Enter for a new line)"></textarea>
           <button type="submit">Send</button>
         </form>

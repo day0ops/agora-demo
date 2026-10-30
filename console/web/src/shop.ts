@@ -27,18 +27,20 @@ import type { Listing, Bid, Order, MarketplaceEvent } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
-  <div id="topbar"></div>
-  <div class="page">
-    <div class="identity-picker">
+  <header id="topbar"></header>
+  <main class="page">
+    <label class="identity-picker" for="buyer-select">
       Shopping as
       <select id="buyer-select"></select>
-    </div>
+    </label>
     <div class="layout">
       <div class="panel">
         <h2>Live auctions &amp; buy-now listings</h2>
         <div class="shop-filters">
-          <input type="search" id="search-input" placeholder="Search by title or category..." aria-label="Search listings" />
-          <select id="category-select" aria-label="Filter by category">
+          <label class="sr-only" for="search-input">Search listings</label>
+          <input type="search" id="search-input" placeholder="Search by title or category..." />
+          <label class="sr-only" for="category-select">Filter by category</label>
+          <select id="category-select">
             <option value="">All categories</option>
           </select>
         </div>
@@ -59,8 +61,8 @@ app.innerHTML = `
       <h2>Your Orders</h2>
       <ul class="orders-ledger" id="orders-ledger"><li class="empty">No orders yet.</li></ul>
     </div>
-  </div>
-  <div id="footer"></div>
+  </main>
+  <footer id="footer"></footer>
 `;
 
 mountNavbar(document.querySelector("#topbar")!, "shop");
@@ -141,7 +143,9 @@ function renderGrid(): void {
   const visible = active.filter(matchesFilters);
   if (visible.length) {
     grid.innerHTML = visible
-      .map((l) => lotCard(l, { selected: l.id === selectedId }))
+      .map((l) =>
+        lotCard(l, { selected: l.id === selectedId, interactive: true }),
+      )
       .join("");
     return;
   }
@@ -171,10 +175,23 @@ grid.addEventListener("click", (e) => {
   const card = (e.target as HTMLElement).closest<HTMLElement>("[data-id]");
   if (card) selectListing(card.dataset.id!);
 });
+grid.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const card = (e.target as HTMLElement).closest<HTMLElement>("[data-id]");
+  if (!card) return;
+  e.preventDefault();
+  selectListing(card.dataset.id!);
+});
 
 function selectListing(id: string): void {
+  // renderGrid() replaces the grid's innerHTML, which would otherwise drop
+  // keyboard focus back to <body>; re-focus the same card by id afterward.
+  const hadGridFocus = grid.contains(document.activeElement);
   selectedId = id;
   renderGrid();
+  if (hadGridFocus) {
+    grid.querySelector<HTMLElement>(`[data-id="${id}"]`)?.focus();
+  }
   void renderDetail();
 }
 
@@ -244,10 +261,12 @@ async function renderDetail(): Promise<void> {
               : isAuction
                 ? `
         <form class="inline" id="bid-form">
+          <label class="sr-only" for="bid-amount">Bid amount ($)</label>
           <input type="number" id="bid-amount" min="0.01" step="0.01" placeholder="Bid amount ($)" required />
           <button type="submit">Place Bid</button>
         </form>
         <form class="inline" id="autobid-form">
+          <label class="sr-only" for="autobid-amount">Auto-bid max ($)</label>
           <input type="number" id="autobid-amount" min="0.01" step="0.01" placeholder="Auto-bid max ($)" required />
           <button type="submit" class="secondary">Set Auto-Bid</button>
         </form>

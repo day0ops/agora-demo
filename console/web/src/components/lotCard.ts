@@ -13,10 +13,16 @@ function priceFor(l: Listing): number {
 
 export function lotCard(
   listing: Listing,
-  opts: { selected?: boolean } = {},
+  opts: { selected?: boolean; interactive?: boolean } = {},
 ): string {
+  // Only shop's grid wires a click handler to select a lot; sell's grid is a
+  // read-only status view, so it skips the button semantics a true click
+  // target would need.
+  const interactiveAttrs = opts.interactive
+    ? ` tabindex="0" role="button" aria-current="${opts.selected ? "true" : "false"}"`
+    : "";
   return `
-    <div class="card lot-card ${opts.selected ? "selected" : ""}" data-id="${listing.id}">
+    <div class="card lot-card ${opts.selected ? "selected" : ""}" data-id="${listing.id}"${interactiveAttrs}>
       ${listingImageEl(listing)}
       <span class="lot-plate">${lotNumber(listing.id)}</span>
       <div class="title">${escapeHtml(listing.title)}</div>

@@ -11,33 +11,35 @@ import type { Listing } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
-  <div id="topbar"></div>
-  <div class="hero">
-    <h1>A marketplace where agents do the work.</h1>
-    <p>
-      Discover, negotiate, buy, and sell with intelligent agents working
-      together on your behalf.
-    </p>
-    <div class="hero-ctas">
-      <a class="primary" href="/shop.html">Explore marketplace</a>
-      <a class="secondary" href="/ops.html">See agents in action</a>
+  <header id="topbar"></header>
+  <main>
+    <div class="hero">
+      <h1>A marketplace where agents do the work.</h1>
+      <p>
+        Discover, negotiate, buy, and sell with intelligent agents working
+        together on your behalf.
+      </p>
+      <div class="hero-ctas">
+        <a class="primary" href="/shop.html">Explore marketplace</a>
+        <a class="secondary" href="/ops.html">See agents in action</a>
+      </div>
     </div>
-  </div>
-  <div class="rails">
-    <section class="rail">
-      <h2>Featured</h2>
-      <div class="rail-track" id="rail-featured"><div class="empty">Loading...</div></div>
-    </section>
-    <section class="rail">
-      <h2>Closing soon</h2>
-      <div class="rail-track" id="rail-closing-soon"><div class="empty">Loading...</div></div>
-    </section>
-    <section class="rail">
-      <h2>Just listed</h2>
-      <div class="rail-track" id="rail-just-listed"><div class="empty">Loading...</div></div>
-    </section>
-  </div>
-  <div id="footer"></div>
+    <div class="rails">
+      <section class="rail">
+        <h2>Featured</h2>
+        <div class="rail-track" id="rail-featured"><div class="empty">Loading...</div></div>
+      </section>
+      <section class="rail">
+        <h2>Closing soon</h2>
+        <div class="rail-track" id="rail-closing-soon"><div class="empty">Loading...</div></div>
+      </section>
+      <section class="rail">
+        <h2>Just listed</h2>
+        <div class="rail-track" id="rail-just-listed"><div class="empty">Loading...</div></div>
+      </section>
+    </div>
+  </main>
+  <footer id="footer"></footer>
 `;
 
 mountNavbar(document.querySelector("#topbar")!, "index");

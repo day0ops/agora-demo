@@ -36,7 +36,13 @@
    dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 4.71:1
    light - text/bg 17.41:1, text/surface 18.69:1, accent-ink/accent 5.18:1
    muted clears 4.5:1 against both bg and surface in both themes.
-   All pairs meet the 4.5:1 body-text floor. */
+   All pairs meet the 4.5:1 body-text floor.
+
+   Status pill text (ok/warn/idle/info/bad/accent) sits on its own 15%-tinted
+   chip background, not on bg/surface directly - the raw status hue there
+   measured as low as 3.2:1 (accent, dark), below the floor. Mixing each
+   status color 70% with --text brings every variant to 5:1 or better in
+   both themes; see .pill.* below. */
 html[data-theme="light"] {
   --bg: #f7f7f4;
   --surface: #ffffff;
@@ -82,6 +88,23 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -205,27 +228,27 @@ button.link:hover {
 }
 .pill.ok {
   background: color-mix(in srgb, var(--ok) 15%, transparent);
-  color: var(--ok);
+  color: color-mix(in srgb, var(--ok) 70%, var(--text) 30%);
 }
 .pill.warn {
   background: color-mix(in srgb, var(--warn) 15%, transparent);
-  color: var(--warn);
+  color: color-mix(in srgb, var(--warn) 70%, var(--text) 30%);
 }
 .pill.idle {
   background: color-mix(in srgb, var(--idle) 15%, transparent);
-  color: var(--muted);
+  color: color-mix(in srgb, var(--muted) 70%, var(--text) 30%);
 }
 .pill.info {
   background: color-mix(in srgb, var(--info) 15%, transparent);
-  color: var(--info);
+  color: color-mix(in srgb, var(--info) 70%, var(--text) 30%);
 }
 .pill.bad {
   background: color-mix(in srgb, var(--bad) 15%, transparent);
-  color: var(--bad);
+  color: color-mix(in srgb, var(--bad) 70%, var(--text) 30%);
 }
 .pill.accent {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) 70%, var(--text) 30%);
 }
 
 .panel {

@@ -8,8 +8,8 @@ import type { MarketplaceEvent } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
-  <div id="topbar"></div>
-  <div class="page">
+  <header id="topbar"></header>
+  <main class="page">
     <div class="stats" id="stats">
       <div class="stat"><b id="stat-active">-</b><span>Active listings</span></div>
       <div class="stat"><b id="stat-orders">-</b><span>Total orders</span></div>
@@ -24,8 +24,8 @@ app.innerHTML = `
       <h2>Live activity</h2>
       <div class="event-log" id="event-log"></div>
     </div>
-  </div>
-  <div id="footer"></div>
+  </main>
+  <footer id="footer"></footer>
 `;
 
 mountNavbar(document.querySelector("#topbar")!, "ops");
