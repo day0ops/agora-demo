@@ -1,5 +1,5 @@
 import { initTheme, toggleTheme } from "./theme";
-import { BRAND_ICON } from "./icon";
+import { icons } from "./icons";
 
 export const APP_NAME = "Agora";
 export const APP_VERSION = "0.1.0";
@@ -12,7 +12,7 @@ const NAV: { href: string; key: View; label: string }[] = [
   { href: "/ops.html", key: "ops", label: "Operator" },
 ];
 
-export const BRAND_LINK = `<a class="brand" href="/index.html">${BRAND_ICON}${APP_NAME}</a>`;
+export const BRAND_LINK = `<a class="brand" href="/index.html">${icons.brand}${APP_NAME}</a>`;
 
 export function mountTopbar(root: HTMLElement, active: View): void {
   root.classList.add("topbar");
