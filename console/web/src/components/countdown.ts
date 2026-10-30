@@ -7,7 +7,12 @@ export function countdownEl(
   listing: Listing,
   now: number = Date.now(),
 ): string {
-  if (listing.type !== "auction") return "";
+  // A closed auction (sold/unsold-expired/withdrawn) still has type
+  // "auction" and a past auctionEndsAt, so without the status check this
+  // rendered a stale "ending..." forever instead of nothing.
+  if (listing.type !== "auction" || listing.status !== "active-auction") {
+    return "";
+  }
   const remaining = listing.auctionEndsAt
     ? new Date(listing.auctionEndsAt).getTime() - now
     : Infinity;
