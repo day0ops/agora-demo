@@ -153,7 +153,9 @@ a {
 .execution-drawer-backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  /* A fixed dark dim, not var(--bg): --bg is near-white in light theme, so
+     mixing it with transparent barely dimmed the page behind the drawer. */
+  background: color-mix(in srgb, black 40%, transparent);
 }
 .execution-drawer {
   position: absolute;
