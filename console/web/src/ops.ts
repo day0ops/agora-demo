@@ -4,6 +4,8 @@ import { connectEvents } from "./events";
 import { getStats, listListings } from "./api";
 import { escapeHtml } from "./html";
 import { formatCents } from "./format";
+import { icons } from "./icons";
+import { openExecutionDrawer } from "./components/executionDrawer";
 import type { MarketplaceEvent } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -79,11 +81,47 @@ function describe(evt: MarketplaceEvent): string {
   }
 }
 
+function executionTriggerHtml(evt: MarketplaceEvent): string {
+  if (evt.type !== "bid.placed" && evt.type !== "order.created") return "";
+  return `<button type="button" class="link behind-the-scenes-btn" aria-label="Behind the scenes">${icons.scan}</button>`;
+}
+
+function openExecutionDrawerForEvent(evt: MarketplaceEvent): void {
+  if (evt.type === "bid.placed") {
+    const b = evt.data.bid;
+    openExecutionDrawer({
+      summary: {
+        title: `${b.buyerId} bid ${formatCents(b.amountCents)} on "${titleFor(evt.data.listingId)}"`,
+        body: b.isAutoBid
+          ? "Placed automatically by the proxy-bidding engine."
+          : "Placed manually.",
+        trustCheck: b.trustCheck
+          ? { score: b.trustCheck.score, reasons: b.trustCheck.reasons }
+          : "unavailable",
+      },
+      correlationId: b.correlationId,
+    });
+  } else if (evt.type === "order.created") {
+    openExecutionDrawer({
+      summary: {
+        title: `${evt.data.buyerId} purchased "${titleFor(evt.data.listingId)}"`,
+        body: `Final price ${formatCents(evt.data.finalPriceCents)}.`,
+        trustCheck: "unavailable",
+      },
+      correlationId: evt.data.correlationId,
+    });
+  }
+}
+
 function logEvent(evt: MarketplaceEvent): void {
   const entry = document.createElement("div");
   entry.className = "entry";
   const ts = new Date().toLocaleTimeString();
-  entry.innerHTML = `<span class="ts">${ts}</span><span class="kind">${escapeHtml(evt.type)}</span><span>${escapeHtml(describe(evt))}</span>`;
+  const trigger = executionTriggerHtml(evt);
+  entry.innerHTML = `<span class="ts">${ts}</span><span class="kind">${escapeHtml(evt.type)}</span><span>${escapeHtml(describe(evt))}</span>${trigger}`;
+  entry
+    .querySelector<HTMLButtonElement>(".behind-the-scenes-btn")
+    ?.addEventListener("click", () => openExecutionDrawerForEvent(evt));
   eventLog.appendChild(entry);
   while (eventLog.children.length > MAX_LOG_ENTRIES) {
     eventLog.removeChild(eventLog.firstChild!);

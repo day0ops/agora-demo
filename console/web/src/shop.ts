@@ -23,6 +23,7 @@ import { refreshCountdowns } from "./components/countdown";
 import { listingImageEl } from "./components/listingImage";
 import { emptyState } from "./components/emptyState";
 import { icons } from "./icons";
+import { openExecutionDrawer } from "./components/executionDrawer";
 import type { Listing, Bid, Order, MarketplaceEvent } from "./types";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -216,6 +217,12 @@ async function renderDetail(): Promise<void> {
     listing.status === "active-auction" || listing.status === "active-buy-now";
   const isSold = listing.status === "sold";
   const isWon = isAuction && isSold;
+  const winningBid = isSold
+    ? bids.reduce<Bid | undefined>(
+        (max, b) => (!max || b.amountCents > max.amountCents ? b : max),
+        undefined,
+      )
+    : undefined;
   const isPassed =
     listing.status === "unsold-expired" || listing.status === "withdrawn";
 
@@ -224,6 +231,7 @@ async function renderDetail(): Promise<void> {
     <div class="detail">
       ${listingImageEl(listing, { eager: true })}
       ${isSold ? '<span class="sold-stamp">Sold</span>' : ""}
+      ${isSold ? `<button type="button" class="link behind-the-scenes-btn" id="detail-behind-the-scenes-btn">${icons.scan} Behind the scenes</button>` : ""}
       <span class="lot-plate">${lotNumber(listing.id)}</span>
       <h3>${escapeHtml(listing.title)}</h3>
       <p class="desc">${escapeHtml(listing.description)}</p>
@@ -358,6 +366,26 @@ async function renderDetail(): Promise<void> {
         }
       });
     });
+
+  detailPanel
+    .querySelector<HTMLButtonElement>("#detail-behind-the-scenes-btn")
+    ?.addEventListener("click", () => {
+      openExecutionDrawer({
+        summary: {
+          title: winningBid
+            ? `${winningBid.buyerId} won "${listing.title}"`
+            : `"${listing.title}" sold`,
+          body: `Final price ${formatCents(price)}.`,
+          trustCheck: winningBid?.trustCheck
+            ? {
+                score: winningBid.trustCheck.score,
+                reasons: winningBid.trustCheck.reasons,
+              }
+            : "unavailable",
+        },
+        correlationId: winningBid?.correlationId,
+      });
+    });
 }
 
 function renderOrders(orders: Order[]): void {
@@ -367,11 +395,48 @@ function renderOrders(orders: Order[]): void {
         .reverse()
         .map((o) => {
           const l = listings.get(o.listingId);
-          return `<li><span class="item">${escapeHtml(l?.title ?? o.listingId)}</span><span class="amt">${formatCents(o.finalPriceCents)}</span></li>`;
+          const title = l?.title ?? o.listingId;
+          return `
+            <li>
+              <span class="item">${escapeHtml(title)}</span>
+              <span class="amt">${formatCents(o.finalPriceCents)}</span>
+              <button type="button" class="link behind-the-scenes-btn" data-listing-id="${o.listingId}" data-buyer-id="${escapeHtml(o.buyerId)}" data-title="${escapeHtml(title)}" data-price-cents="${o.finalPriceCents}" data-correlation-id="${escapeHtml(o.correlationId ?? "")}">${icons.scan} Behind the scenes</button>
+            </li>`;
         })
         .join("")
     : '<li class="empty">No orders yet.</li>';
 }
+
+ordersLedger.addEventListener("click", async (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(
+    ".behind-the-scenes-btn",
+  );
+  if (!btn) return;
+  const { listingId, buyerId, title, priceCents, correlationId } = btn.dataset;
+  let winningBid: Bid | undefined;
+  try {
+    const history = await bidHistory(listingId!);
+    winningBid = history.reduce<Bid | undefined>(
+      (max, b) => (!max || b.amountCents > max.amountCents ? b : max),
+      undefined,
+    );
+  } catch {
+    // best-effort; the drawer still opens with an order-only summary
+  }
+  openExecutionDrawer({
+    summary: {
+      title: `${buyerId} won "${title}"`,
+      body: `Final price ${formatCents(Number(priceCents))}.`,
+      trustCheck: winningBid?.trustCheck
+        ? {
+            score: winningBid.trustCheck.score,
+            reasons: winningBid.trustCheck.reasons,
+          }
+        : "unavailable",
+    },
+    correlationId: winningBid?.correlationId || correlationId || undefined,
+  });
+});
 
 async function loadOrders(): Promise<void> {
   try {
