@@ -44,6 +44,11 @@ app.innerHTML = `
           <select id="category-select">
             <option value="">All categories</option>
           </select>
+          <label class="sr-only" for="status-filter">Filter by status</label>
+          <select id="status-filter">
+            <option value="active">Active listings</option>
+            <option value="sold">Sold</option>
+          </select>
         </div>
         <div class="grid" id="listing-grid"><div class="empty">Loading listings...</div></div>
       </div>
@@ -90,6 +95,7 @@ const listings = new Map<string, Listing>();
 let selectedId: string | null = null;
 let searchQuery = "";
 let categoryFilter = "";
+let statusFilter: "active" | "sold" = "active";
 const expiryRefreshRequested = new Set<string>();
 
 const grid = document.querySelector<HTMLDivElement>("#listing-grid")!;
@@ -99,6 +105,8 @@ const ordersLedger =
 const searchInput = document.querySelector<HTMLInputElement>("#search-input")!;
 const categorySelect =
   document.querySelector<HTMLSelectElement>("#category-select")!;
+const statusSelect =
+  document.querySelector<HTMLSelectElement>("#status-filter")!;
 
 function highestBid(bids: Bid[]): Bid | undefined {
   return bids.reduce<Bid | undefined>(
@@ -141,14 +149,16 @@ function renderCategoryOptions(active: Listing[]): void {
 }
 
 function renderGrid(): void {
-  const active = [...listings.values()]
-    .filter(
-      (l) => l.status === "active-auction" || l.status === "active-buy-now",
+  const matchingStatus = [...listings.values()]
+    .filter((l) =>
+      statusFilter === "active"
+        ? l.status === "active-auction" || l.status === "active-buy-now"
+        : l.status === "sold",
     )
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  renderCategoryOptions(active);
+  renderCategoryOptions(matchingStatus);
 
-  const visible = active.filter(matchesFilters);
+  const visible = matchingStatus.filter(matchesFilters);
   if (visible.length) {
     grid.innerHTML = visible
       .map((l) =>
@@ -157,17 +167,25 @@ function renderGrid(): void {
       .join("");
     return;
   }
-  grid.innerHTML = active.length
+  grid.innerHTML = matchingStatus.length
     ? emptyState({
         title: "No matching listings",
         body: "Try a different search or category.",
         icon: icons.shop,
       })
-    : emptyState({
-        title: "No active listings",
-        body: "Check back soon as sellers list items.",
-        icon: icons.shop,
-      });
+    : emptyState(
+        statusFilter === "active"
+          ? {
+              title: "No active listings",
+              body: "Check back soon as sellers list items.",
+              icon: icons.shop,
+            }
+          : {
+              title: "No sold listings yet",
+              body: "Sold listings will appear here once something sells.",
+              icon: icons.shop,
+            },
+      );
 }
 
 searchInput.addEventListener("input", () => {
@@ -177,6 +195,13 @@ searchInput.addEventListener("input", () => {
 categorySelect.addEventListener("change", () => {
   categoryFilter = categorySelect.value;
   renderGrid();
+});
+statusSelect.addEventListener("change", () => {
+  statusFilter = statusSelect.value as "active" | "sold";
+  selectedId = null;
+  detailPanel.innerHTML =
+    '<h2>Listing</h2><div class="empty">Select a listing to view details and place a bid.</div>';
+  void loadListings();
 });
 
 grid.addEventListener("click", (e) => {
@@ -450,12 +475,15 @@ async function loadOrders(): Promise<void> {
 
 async function loadListings(): Promise<void> {
   try {
-    const [auctions, buyNow] = await Promise.all([
-      listListings({ status: "active-auction" }),
-      listListings({ status: "active-buy-now" }),
-    ]);
+    const fetched =
+      statusFilter === "active"
+        ? await Promise.all([
+            listListings({ status: "active-auction" }),
+            listListings({ status: "active-buy-now" }),
+          ]).then(([auctions, buyNow]) => [...auctions, ...buyNow])
+        : await listListings({ status: "sold" });
     listings.clear();
-    [...auctions, ...buyNow].forEach((l) => listings.set(l.id, l));
+    fetched.forEach((l) => listings.set(l.id, l));
     renderGrid();
   } catch {
     grid.innerHTML = emptyState({
