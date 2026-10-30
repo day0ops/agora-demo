@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/day0ops/agora-demo/fixtures"
+	"github.com/day0ops/agora-demo/trust-scoring"
 )
 
 func testStore(t *testing.T) *Store {
@@ -747,6 +749,67 @@ func TestNewStoreGeneratedIDsDoNotCollideWithSeedIDs(t *testing.T) {
 	if after.Title != before.Title || after.PriceCents != before.PriceCents ||
 		after.CurrentBidCents != before.CurrentBidCents || after.Status != before.Status {
 		t.Fatalf("seeded listing-1 was mutated by creating an unrelated listing: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestPlaceBidRecordsTrustCheck(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	bid, err := s.PlaceBid("l1", "buyer-1", 1000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bid.TrustCheck == nil {
+		t.Fatalf("expected a trust check result, got nil")
+	}
+	if bid.TrustCheck.ScoredBy != "heuristic" {
+		t.Fatalf("expected ScoredBy=heuristic, got %q", bid.TrustCheck.ScoredBy)
+	}
+	if bid.TrustCheck.Score != 0 {
+		t.Fatalf("expected zero risk for a first bid with no history, got %+v", bid.TrustCheck)
+	}
+}
+
+func TestPlaceBidTrustCheckFlagsSelfBidOverLead(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	if _, err := s.PlaceBid("l1", "buyer-1", 1000); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	bid, err := s.PlaceBid("l1", "buyer-1", 2000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bid.TrustCheck == nil || bid.TrustCheck.Score < 0.5 {
+		t.Fatalf("expected a meaningful risk score for self-bidding over own lead, got %+v", bid.TrustCheck)
+	}
+}
+
+type failingScorer struct{}
+
+func (failingScorer) ScoreBidRisk(context.Context, trustscoring.BidRiskInput) (trustscoring.RiskScore, error) {
+	return trustscoring.RiskScore{}, errors.New("scorer unavailable")
+}
+
+func TestPlaceBidTrustCheckNilWhenScorerFails(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "l1", Type: fixtures.ListingTypeAuction, Status: fixtures.ListingStatusActiveAuction, PriceCents: 1000, AuctionEndsAt: &end},
+	}, nil, nil)
+	s.scorer = failingScorer{}
+
+	bid, err := s.PlaceBid("l1", "buyer-1", 1000)
+	if err != nil {
+		t.Fatalf("expected bid to succeed even when the scorer fails, got error: %v", err)
+	}
+	if bid.TrustCheck != nil {
+		t.Fatalf("expected nil TrustCheck when the scorer fails, got %+v", bid.TrustCheck)
 	}
 }
 

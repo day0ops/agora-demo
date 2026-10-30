@@ -7,8 +7,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +19,7 @@ import (
 	"time"
 
 	"github.com/day0ops/agora-demo/fixtures"
+	"github.com/day0ops/agora-demo/trust-scoring"
 )
 
 // Sentinel errors returned by Store, checkable with errors.Is.
@@ -100,6 +103,7 @@ type Store struct {
 	nextCeilingSeq int64
 	newID          func(prefix string) string
 	now            func() time.Time
+	scorer         trustscoring.RiskScorer
 }
 
 // NewStore returns a Store seeded with the given listings and bids.
@@ -129,6 +133,7 @@ func newStoreWithIDFunc(
 		orders:   make(map[string]fixtures.Order),
 		newID:    newID,
 		now:      time.Now,
+		scorer:   trustscoring.NewHeuristicScorer(),
 	}
 	for _, l := range listings {
 		s.listings[l.ID] = copyListing(l)
@@ -264,6 +269,33 @@ func (s *Store) CreateListing(
 	return copyListing(l), nil
 }
 
+// scoreBidRisk runs the trust-scoring heuristic in-process against a
+// candidate bid's current listing history (history does not yet include the
+// candidate bid itself). A scorer failure never blocks the bid: it is
+// logged and the bid proceeds with no trust-check result, matching the "a
+// trust-check outage never blocks a buyer" rule - now enforced structurally
+// since there is no network call that can time out, only a possible
+// programming error in the scorer itself. Must be called with s.mu held.
+func (s *Store) scoreBidRisk(listingID, buyerID string, amountCents, listingPriceCents int64) *fixtures.TrustCheckResult {
+	risk, err := s.scorer.ScoreBidRisk(context.Background(), trustscoring.BidRiskInput{
+		ListingID:         listingID,
+		BuyerID:           buyerID,
+		AmountCents:       amountCents,
+		ListingPriceCents: listingPriceCents,
+		BidHistory:        s.bids[listingID],
+	})
+	if err != nil {
+		log.Printf("trust check for bid on %s by %s: %v", listingID, buyerID, err)
+		return nil
+	}
+	return &fixtures.TrustCheckResult{
+		Score:     risk.Score,
+		Reasons:   risk.Reasons,
+		ScoredBy:  risk.ScoredBy,
+		CheckedAt: s.now(),
+	}
+}
+
 // PlaceBid places a manual bid against an open auction listing. The first
 // bid on a listing must meet or exceed its starting price; every bid after
 // that must strictly exceed the current price. On success, the listing's
@@ -302,6 +334,7 @@ func (s *Store) PlaceBid(listingID, buyerID string, amountCents int64) (fixtures
 		BuyerID:     buyerID,
 		AmountCents: amountCents,
 		PlacedAt:    s.now(),
+		TrustCheck:  s.scoreBidRisk(listingID, buyerID, amountCents, l.PriceCents),
 	}
 	s.bids[listingID] = append(s.bids[listingID], bid)
 	l.CurrentBidCents = amountCents
