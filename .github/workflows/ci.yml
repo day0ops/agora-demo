@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GO_MODULES: ./fixtures/... ./catalog-api/... ./mcp-servers/bids-mcp/... ./mcp-servers/pricing-mcp/...
+
 jobs:
   lint-test-go:
     runs-on: ubuntu-latest
@@ -19,6 +22,6 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.1
-          args: ./fixtures/... ./catalog-api/... ./mcp-servers/bids-mcp/...
-      - run: mkdir -p /tmp/build-out && go build -o /tmp/build-out/ ./fixtures/... ./catalog-api/... ./mcp-servers/bids-mcp/...
-      - run: go test ./fixtures/... ./catalog-api/... ./mcp-servers/bids-mcp/... -v
+          args: ${{ env.GO_MODULES }}
+      - run: mkdir -p /tmp/build-out && go build -o /tmp/build-out/ ${{ env.GO_MODULES }}
+      - run: go test ${{ env.GO_MODULES }} -race -v
