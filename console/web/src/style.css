@@ -110,7 +110,9 @@ a {
 }
 
 :focus-visible {
-  outline: 1.5px solid var(--accent);
+  /* Integer width/offset - a fractional width (1.5px) anti-aliases unevenly
+     at rounded corners, leaving a visible gap/seam in the outline. */
+  outline: 1px solid var(--accent);
   outline-offset: 1px;
 }
 
