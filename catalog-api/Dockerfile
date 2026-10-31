@@ -1,6 +1,7 @@
 FROM golang:1.27-alpine AS builder
 WORKDIR /src
 COPY fixtures/ ./fixtures/
+COPY trust-scoring/ ./trust-scoring/
 COPY catalog-api/ ./catalog-api/
 WORKDIR /src/catalog-api
 RUN go mod download

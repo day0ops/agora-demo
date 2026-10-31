@@ -2,6 +2,7 @@
 FROM golang:1.27-alpine AS builder
 WORKDIR /src
 COPY fixtures/ ./fixtures/
+COPY trust-scoring/ ./trust-scoring/
 COPY mcp-servers/trust-mcp/ ./mcp-servers/trust-mcp/
 WORKDIR /src/mcp-servers/trust-mcp
 RUN go mod download
