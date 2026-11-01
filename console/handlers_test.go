@@ -188,12 +188,73 @@ func TestHandleCheckoutPublishesEvent(t *testing.T) {
 	}
 }
 
-func TestHandleChatReturns200WithErrorWhenInvokerFails(t *testing.T) {
-	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
+type fakeInvoker struct {
+	reply    string
+	err      error
+	gotToken string
+}
+
+func (f *fakeInvoker) Send(_ context.Context, _, _, _, token string) (string, error) {
+	f.gotToken = token
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.reply, nil
+}
+
+func TestHandleChatReturnsReplyOnSuccess(t *testing.T) {
+	inv := &fakeInvoker{reply: "Here are three listings you might like."}
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), inv)
+
+	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
+	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body))
+	req.Header.Set("X-Agora-User-Token", "user-token-123")
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
+
+	var resp chatResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Reply != "Here are three listings you might like." || resp.Error != "" {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+	if inv.gotToken != "user-token-123" {
+		t.Fatalf("expected the forwarded token to reach the invoker, got %q", inv.gotToken)
+	}
+}
+
+func TestHandleChatReturnsNotAuthenticatedErrorWithNoTokenHeader(t *testing.T) {
+	inv := &fakeInvoker{reply: "should not be used"}
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), inv)
 
 	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
 	rec := httptest.NewRecorder()
 	srv.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body)))
+
+	var resp chatResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Reply != "" {
+		t.Fatalf("expected no reply when unauthenticated, got %q", resp.Reply)
+	}
+	if resp.Error != ErrNotAuthenticated.Error() {
+		t.Fatalf("expected the not-authenticated error, got %q", resp.Error)
+	}
+	if inv.gotToken != "" {
+		t.Fatal("expected the invoker never to be called with no token")
+	}
+}
+
+func TestHandleChatReturns200WithErrorWhenInvokerFails(t *testing.T) {
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
+
+	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
+	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body))
+	req.Header.Set("X-Agora-User-Token", "user-token-123")
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 (agent unavailability is a normal chat response, not a transport error), got %d", rec.Code)
@@ -204,28 +265,6 @@ func TestHandleChatReturns200WithErrorWhenInvokerFails(t *testing.T) {
 	}
 	if resp.Error == "" || resp.Reply != "" {
 		t.Fatalf("expected an Error and no Reply, got %+v", resp)
-	}
-}
-
-type fakeInvoker struct{ reply string }
-
-func (f fakeInvoker) Send(context.Context, string, string, string) (string, error) {
-	return f.reply, nil
-}
-
-func TestHandleChatReturnsReplyOnSuccess(t *testing.T) {
-	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), fakeInvoker{reply: "Here are three listings you might like."})
-
-	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
-	rec := httptest.NewRecorder()
-	srv.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body)))
-
-	var resp chatResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if resp.Reply != "Here are three listings you might like." || resp.Error != "" {
-		t.Fatalf("unexpected response: %+v", resp)
 	}
 }
 

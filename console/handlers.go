@@ -210,16 +210,26 @@ type chatResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
-// handleChat always responds 200: an agent being unavailable (today, every
-// call -- see AgentInvokerStub) is a normal, expected state the frontend
-// should render as a chat message, not treat as a network failure.
+// forwardedTokenHeader is the header oidc-gateway's AuthConfig
+// (forwardAccessTokenHeader) sets on every request once the visitor has a
+// real Keycloak session -- see the agora-oidc-agentgateway-a2a design doc.
+const forwardedTokenHeader = "X-Agora-User-Token"
+
+// handleChat always responds 200: an agent being unavailable, or the caller
+// not being authenticated, are normal states the frontend renders as a chat
+// message, not network failures.
 func (s *consoleServer) handleChat(w http.ResponseWriter, r *http.Request) {
 	var req chatRequest
 	if err := decodeBody(w, r, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
-	reply, err := s.invoker.Send(r.Context(), req.Agent, req.SessionID, req.Message)
+	token := r.Header.Get(forwardedTokenHeader)
+	if token == "" {
+		writeJSON(w, http.StatusOK, chatResponse{Error: ErrNotAuthenticated.Error()})
+		return
+	}
+	reply, err := s.invoker.Send(r.Context(), req.Agent, req.SessionID, req.Message, token)
 	if err != nil {
 		writeJSON(w, http.StatusOK, chatResponse{Error: err.Error()})
 		return

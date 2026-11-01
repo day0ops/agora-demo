@@ -26,7 +26,12 @@ func envOr(key, fallback string) string {
 func main() {
 	catalogAPIURL := envOr("CATALOG_API_URL", "http://catalog-api:8080")
 
-	srv := newConsoleServer(newCatalogClient(catalogAPIURL), newEventHub(), AgentInvokerStub{})
+	var invoker AgentInvoker = AgentInvokerStub{}
+	if base := os.Getenv("AGENTGATEWAY_BASE_URL"); base != "" {
+		invoker = newAgentInvokerHTTP(base)
+	}
+
+	srv := newConsoleServer(newCatalogClient(catalogAPIURL), newEventHub(), invoker)
 
 	dist, err := fs.Sub(webDist, "web/dist")
 	if err != nil {
