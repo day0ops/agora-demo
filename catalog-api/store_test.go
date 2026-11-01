@@ -721,7 +721,7 @@ func TestWithdrawBidClearsTheBuyersStandingCeiling(t *testing.T) {
 // its counter at 0 and immediately colliding with fixtures.Seed()'s
 // hardcoded "listing-1" etc, which silently overwrote the seeded listing.
 func TestNewStoreGeneratedIDsDoNotCollideWithSeedIDs(t *testing.T) {
-	_, _, listings, bids := fixtures.Seed(time.Now())
+	_, _, listings, bids, _ := fixtures.Seed(time.Now())
 	s := NewStore(listings, bids)
 
 	before, err := s.GetListing("listing-1")
@@ -749,6 +749,28 @@ func TestNewStoreGeneratedIDsDoNotCollideWithSeedIDs(t *testing.T) {
 	if after.Title != before.Title || after.PriceCents != before.PriceCents ||
 		after.CurrentBidCents != before.CurrentBidCents || after.Status != before.Status {
 		t.Fatalf("seeded listing-1 was mutated by creating an unrelated listing: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestSeedOrdersInsertsOrdersAndRaisesIDCounterFloor(t *testing.T) {
+	s := newStoreWithIDFunc(nil, nil, func(prefix string) string {
+		return fmt.Sprintf("%s-generated", prefix)
+	})
+	s.SeedOrders([]fixtures.Order{
+		{ID: "order-7", ListingID: "l1", BuyerID: "buyer-1", SellerID: "seller-1", FinalPriceCents: 1000},
+	})
+
+	got, err := s.GetOrder("order-7")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.FinalPriceCents != 1000 {
+		t.Fatalf("expected the seeded order to be stored as-is, got %+v", got)
+	}
+
+	orders := s.ListOrders(OrderFilter{})
+	if len(orders) != 1 {
+		t.Fatalf("expected exactly one order, got %d", len(orders))
 	}
 }
 

@@ -15,8 +15,9 @@ func main() {
 		port = "8080"
 	}
 
-	_, _, listings, bids := fixtures.Seed(time.Now())
+	_, _, listings, bids, orders := fixtures.Seed(time.Now())
 	store := NewStore(listings, bids)
+	store.SeedOrders(orders)
 
 	srv := &http.Server{
 		Addr:              ":" + port,

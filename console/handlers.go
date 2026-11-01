@@ -24,17 +24,11 @@ func newConsoleServer(catalog *catalogClient, hub *eventHub, invoker AgentInvoke
 func (s *consoleServer) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/listings", s.handleListListings)
-	mux.HandleFunc("POST /api/listings", s.handleCreateListing)
 	mux.HandleFunc("GET /api/listings/{id}", s.handleGetListing)
 	mux.HandleFunc("GET /api/listings/{id}/bids", s.handleBidHistory)
-	mux.HandleFunc("POST /api/listings/{id}/bids", s.handlePlaceBid)
-	mux.HandleFunc("DELETE /api/listings/{id}/bids/{bidID}", s.handleWithdrawBid)
-	mux.HandleFunc("POST /api/listings/{id}/autobid", s.handleSetAutoBidMax)
-	mux.HandleFunc("POST /api/listings/{id}/checkout", s.handleCheckout)
-	mux.HandleFunc("GET /api/orders", s.handleListOrders)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
-	mux.HandleFunc("GET /api/stats", s.handleStats)
+	s.accountRoutes(mux)
 	return mux
 }
 
@@ -94,21 +88,6 @@ func (s *consoleServer) handleGetListing(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, l)
 }
 
-func (s *consoleServer) handleCreateListing(w http.ResponseWriter, r *http.Request) {
-	var req createListingRequest
-	if err := decodeBody(w, r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
-		return
-	}
-	l, err := s.catalog.createListing(r.Context(), req)
-	if err != nil {
-		writeCatalogError(w, err)
-		return
-	}
-	s.hub.publish(Event{Type: "listing.created", Data: l})
-	writeJSON(w, http.StatusCreated, l)
-}
-
 func (s *consoleServer) handleBidHistory(w http.ResponseWriter, r *http.Request) {
 	bids, err := s.catalog.bidHistory(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -116,88 +95,6 @@ func (s *consoleServer) handleBidHistory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, bids)
-}
-
-type placeBidRequest struct {
-	BuyerID     string `json:"buyerId"`
-	AmountCents int64  `json:"amountCents"`
-}
-
-func (s *consoleServer) handlePlaceBid(w http.ResponseWriter, r *http.Request) {
-	var req placeBidRequest
-	if err := decodeBody(w, r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
-		return
-	}
-	listingID := r.PathValue("id")
-	bid, err := s.catalog.placeBid(r.Context(), listingID, req.BuyerID, req.AmountCents)
-	if err != nil {
-		writeCatalogError(w, err)
-		return
-	}
-	s.hub.publish(Event{Type: "bid.placed", Data: map[string]any{"listingId": listingID, "bid": bid}})
-	writeJSON(w, http.StatusCreated, bid)
-}
-
-type setAutoBidMaxRequest struct {
-	BuyerID  string `json:"buyerId"`
-	MaxCents int64  `json:"maxCents"`
-}
-
-func (s *consoleServer) handleSetAutoBidMax(w http.ResponseWriter, r *http.Request) {
-	var req setAutoBidMaxRequest
-	if err := decodeBody(w, r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
-		return
-	}
-	listingID := r.PathValue("id")
-	l, err := s.catalog.setAutoBidMax(r.Context(), listingID, req.BuyerID, req.MaxCents)
-	if err != nil {
-		writeCatalogError(w, err)
-		return
-	}
-	s.hub.publish(Event{Type: "autobid.set", Data: map[string]any{"listingId": listingID, "listing": l}})
-	writeJSON(w, http.StatusOK, l)
-}
-
-func (s *consoleServer) handleWithdrawBid(w http.ResponseWriter, r *http.Request) {
-	listingID := r.PathValue("id")
-	bidID := r.PathValue("bidID")
-	if err := s.catalog.withdrawBid(r.Context(), listingID, bidID); err != nil {
-		writeCatalogError(w, err)
-		return
-	}
-	s.hub.publish(Event{Type: "bid.withdrawn", Data: map[string]any{"listingId": listingID, "bidId": bidID}})
-	w.WriteHeader(http.StatusNoContent)
-}
-
-type checkoutRequest struct {
-	BuyerID string `json:"buyerId"`
-}
-
-func (s *consoleServer) handleCheckout(w http.ResponseWriter, r *http.Request) {
-	var req checkoutRequest
-	if err := decodeBody(w, r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
-		return
-	}
-	listingID := r.PathValue("id")
-	order, err := s.catalog.checkout(r.Context(), listingID, req.BuyerID)
-	if err != nil {
-		writeCatalogError(w, err)
-		return
-	}
-	s.hub.publish(Event{Type: "order.created", Data: order})
-	writeJSON(w, http.StatusCreated, order)
-}
-
-func (s *consoleServer) handleListOrders(w http.ResponseWriter, r *http.Request) {
-	orders, err := s.catalog.listOrders(r.Context(), r.URL.Query().Get("buyerId"), r.URL.Query().Get("sellerId"))
-	if err != nil {
-		writeCatalogError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, orders)
 }
 
 type chatRequest struct {
@@ -292,11 +189,9 @@ type statsResponse struct {
 }
 
 // handleStats feeds the operator console's live metrics strip from real
-// catalog-api data plus the hub's own connected-client count. It
-// deliberately does not report anything about kagent Substrate worker-pool
-// density or agentgateway budget/rate-limit enforcement -- there is no live
-// cluster behind this console yet to report real numbers for those, and a
-// fabricated chart would be worse than no chart at all.
+// catalog-api data plus the hub's own connected-client count. Gated to the
+// operators role by handleAccountStats, its only caller -- see
+// account_handlers.go.
 func (s *consoleServer) handleStats(w http.ResponseWriter, r *http.Request) {
 	listings, err := s.catalog.listListings(r.Context(), "", "")
 	if err != nil {

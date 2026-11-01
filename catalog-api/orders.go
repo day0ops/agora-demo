@@ -88,6 +88,23 @@ func (s *Store) CheckoutWithCorrelation(listingID, buyerID, correlationID string
 	return order, nil
 }
 
+// SeedOrders inserts pre-existing orders directly into the store, bypassing
+// Checkout's eligibility rules -- for fixtures.Seed()'s already-settled demo
+// history (an order whose listing is already Sold), not a live checkout.
+// Raises the shared ID counter above any seeded order ID, the same guard
+// NewStore applies for listings/bids, so a real order created afterward
+// can't collide with a seeded one.
+func (s *Store) SeedOrders(orders []fixtures.Order) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, o := range orders {
+		s.orders[o.ID] = o
+		if n, ok := numericSuffix(o.ID); ok && n > idCounter.Load() {
+			idCounter.Store(n)
+		}
+	}
+}
+
 // winningBidder returns the buyer with the highest recorded bid on a
 // listing, or "" if there are none. Must be called with s.mu held.
 func (s *Store) winningBidder(listingID string) string {

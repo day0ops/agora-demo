@@ -1,6 +1,11 @@
 import "./style.css";
-import { mountNavbar, mountFooter } from "./components/navbar";
+import {
+  mountNavbar,
+  mountFooter,
+  renderAccountArea,
+} from "./components/navbar";
 import { listListings } from "./api";
+import { currentIdentity } from "./identity";
 import { listingImageEl } from "./components/listingImage";
 import { statusPill } from "./components/statusPill";
 import { emptyState } from "./components/emptyState";
@@ -21,7 +26,7 @@ app.innerHTML = `
       </p>
       <div class="hero-ctas">
         <a class="primary" href="/shop.html">Explore marketplace</a>
-        <a class="secondary" href="/ops.html">See agents in action</a>
+        <a class="secondary" href="/account/login">Login</a>
       </div>
     </div>
     <div class="rails">
@@ -44,6 +49,9 @@ app.innerHTML = `
 
 mountNavbar(document.querySelector("#topbar")!, "index");
 mountFooter(document.querySelector("#footer")!);
+void currentIdentity().then((identity) =>
+  renderAccountArea(document.querySelector("#topbar")!, identity),
+);
 
 const featuredTrack = document.querySelector<HTMLDivElement>("#rail-featured")!;
 const closingSoonTrack =
