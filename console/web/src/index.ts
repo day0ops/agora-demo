@@ -26,7 +26,7 @@ app.innerHTML = `
       </p>
       <div class="hero-ctas">
         <a class="primary" href="/shop.html">Explore marketplace</a>
-        <a class="secondary" href="/account/login">Login</a>
+        <a class="secondary" href="/account/login" id="hero-login-cta">Login</a>
       </div>
     </div>
     <div class="rails">
@@ -49,9 +49,14 @@ app.innerHTML = `
 
 mountNavbar(document.querySelector("#topbar")!, "index");
 mountFooter(document.querySelector("#footer")!);
-void currentIdentity().then((identity) =>
-  renderAccountArea(document.querySelector("#topbar")!, identity),
-);
+void currentIdentity().then((identity) => {
+  renderAccountArea(document.querySelector("#topbar")!, identity);
+  if (identity) {
+    document.querySelector<HTMLAnchorElement>(
+      "#hero-login-cta",
+    )!.style.display = "none";
+  }
+});
 
 const featuredTrack = document.querySelector<HTMLDivElement>("#rail-featured")!;
 const closingSoonTrack =
