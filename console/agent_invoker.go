@@ -155,7 +155,7 @@ func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, messag
 	if err != nil {
 		return "", fmt.Errorf("call agent %q: %w", agentName, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return "", ErrNotAuthenticated
