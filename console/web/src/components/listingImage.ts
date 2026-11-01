@@ -7,6 +7,9 @@ const CATEGORY_FALLBACKS = new Set([
   "cameras",
   "home",
   "memorabilia",
+  "electronics",
+  "art",
+  "instruments",
 ]);
 
 function normalizeCategory(category: string): string {
