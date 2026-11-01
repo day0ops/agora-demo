@@ -115,6 +115,7 @@ jobs:
           set -euo pipefail
           IMAGE="${REGISTRY}/${REPO_PATH}/agora-demo-${{ matrix.service.name }}:${NEW_TAG}"
           docker build --label org.opencontainers.image.version="${NEW_TAG}" \
+            --build-arg VERSION="${NEW_TAG}" \
             -f "${{ matrix.service.dockerfile }}" -t "$IMAGE" .
           docker push "$IMAGE"
 
