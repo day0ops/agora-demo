@@ -1,11 +1,13 @@
 import "./style.css";
-import { mountNavbar, mountFooter } from "./components/navbar";
+import {
+  mountNavbar,
+  mountFooter,
+  renderAccountArea,
+} from "./components/navbar";
 import { mountChatPanel } from "./components/chatPanel";
 import { connectEvents } from "./events";
 import { listListings, createListing, ApiError } from "./api";
-import { SELLERS } from "./identities";
-import { escapeHtml } from "./html";
-import { getStored, setStored } from "./storage";
+import { currentIdentity, canSell, type AccountIdentity } from "./identity";
 import { lotCard } from "./components/lotCard";
 import { emptyState } from "./components/emptyState";
 import { icons } from "./icons";
@@ -21,11 +23,25 @@ const AUCTION_DURATIONS = [
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header id="topbar"></header>
-  <main class="page">
-    <label class="identity-picker" for="seller-select">
-      Selling as
-      <select id="seller-select"></select>
-    </label>
+  <main class="page" id="main"><div class="empty">Loading...</div></main>
+  <footer id="footer"></footer>
+`;
+
+mountNavbar(document.querySelector("#topbar")!, "sell");
+mountFooter(document.querySelector("#footer")!);
+
+const main = document.querySelector<HTMLElement>("#main")!;
+
+function renderDenied(): void {
+  main.innerHTML = emptyState({
+    title: "You need a seller account",
+    body: "Log in as a seller to list items and manage your storefront.",
+    icon: icons.sell,
+  });
+}
+
+function renderSellerPage(identity: AccountIdentity): void {
+  main.innerHTML = `
     <div class="layout">
       <div class="panel">
         <h2>My listings</h2>
@@ -88,163 +104,150 @@ app.innerHTML = `
         </div>
       </div>
     </div>
-  </main>
-  <footer id="footer"></footer>
-`;
+  `;
 
-mountNavbar(document.querySelector("#topbar")!, "sell");
-mountFooter(document.querySelector("#footer")!);
-mountChatPanel(document.querySelector("#chat-mount")!, {
-  agent: "listing-pricing-assistant",
-  label: "Pricing Assistant",
-});
+  mountChatPanel(document.querySelector("#chat-mount")!, {
+    agent: "listing-pricing-assistant",
+    label: "Pricing Assistant",
+  });
 
-const sellerSelect =
-  document.querySelector<HTMLSelectElement>("#seller-select")!;
-sellerSelect.innerHTML = SELLERS.map(
-  (s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`,
-).join("");
-sellerSelect.value = getStored("mktSellerId") || SELLERS[0].id;
-function currentSellerId(): string {
-  return sellerSelect.value;
-}
-
-const proBadgeRow = document.querySelector<HTMLDivElement>("#pro-badge-row")!;
-function renderProBadge(): void {
-  const seller = SELLERS.find((s) => s.id === currentSellerId());
+  const proBadgeRow = document.querySelector<HTMLDivElement>("#pro-badge-row")!;
   proBadgeRow.innerHTML =
-    seller?.tier === "pro"
+    identity.sellerTier === "pro"
       ? '<span class="pill accent pro-badge">Pro pricing assistant</span>'
       : "";
-}
-renderProBadge();
 
-sellerSelect.addEventListener("change", () => {
-  setStored("mktSellerId", sellerSelect.value);
-  renderProBadge();
-  void loadListings();
-});
+  const sellerId = identity.fixtureId!;
+  const listings = new Map<string, Listing>();
+  const grid = document.querySelector<HTMLDivElement>("#listing-grid")!;
 
-const listings = new Map<string, Listing>();
-const grid = document.querySelector<HTMLDivElement>("#listing-grid")!;
+  const STATUS_RANK: Record<string, number> = {
+    "active-auction": 0,
+    "active-buy-now": 0,
+    draft: 1,
+    sold: 2,
+    "unsold-expired": 3,
+    withdrawn: 4,
+  };
 
-const STATUS_RANK: Record<string, number> = {
-  "active-auction": 0,
-  "active-buy-now": 0,
-  draft: 1,
-  sold: 2,
-  "unsold-expired": 3,
-  withdrawn: 4,
-};
+  function renderGrid(): void {
+    const mine = [...listings.values()]
+      .filter((l) => l.sellerId === sellerId)
+      .sort((a, b) => {
+        const rankDiff =
+          (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9);
+        if (rankDiff !== 0) return rankDiff;
+        return a.createdAt < b.createdAt ? 1 : -1;
+      });
+    grid.innerHTML = mine.length
+      ? mine.map((l) => lotCard(l)).join("")
+      : emptyState({
+          title: "No listings yet",
+          body: "Create a listing below to see it appear here.",
+          icon: icons.sell,
+        });
+  }
 
-function renderGrid(): void {
-  const mine = [...listings.values()]
-    .filter((l) => l.sellerId === currentSellerId())
-    .sort((a, b) => {
-      const rankDiff =
-        (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9);
-      if (rankDiff !== 0) return rankDiff;
-      return a.createdAt < b.createdAt ? 1 : -1;
-    });
-  grid.innerHTML = mine.length
-    ? mine.map((l) => lotCard(l)).join("")
-    : emptyState({
-        title: "No listings yet",
-        body: "Create a listing below to see it appear here.",
+  async function loadListings(): Promise<void> {
+    grid.innerHTML = '<div class="empty">Loading listings...</div>';
+    try {
+      const mine = await listListings({ sellerId });
+      listings.clear();
+      mine.forEach((l) => listings.set(l.id, l));
+      renderGrid();
+    } catch {
+      grid.innerHTML = emptyState({
+        title: "Catalog unavailable",
+        body: "Could not reach catalog-api. Try refreshing in a moment.",
         icon: icons.sell,
       });
-}
-
-async function loadListings(): Promise<void> {
-  grid.innerHTML = '<div class="empty">Loading listings...</div>';
-  try {
-    const mine = await listListings({ sellerId: currentSellerId() });
-    listings.clear();
-    mine.forEach((l) => listings.set(l.id, l));
-    renderGrid();
-  } catch {
-    grid.innerHTML = emptyState({
-      title: "Catalog unavailable",
-      body: "Could not reach catalog-api. Try refreshing in a moment.",
-      icon: icons.sell,
-    });
+    }
   }
-}
 
-const typeSelect = document.querySelector<HTMLSelectElement>("#f-type")!;
-const durationWrap =
-  document.querySelector<HTMLDivElement>("#f-duration-wrap")!;
-function syncDurationVisibility(): void {
-  durationWrap.style.display =
-    typeSelect.value === "auction" ? "block" : "none";
-}
-typeSelect.addEventListener("change", syncDurationVisibility);
-syncDurationVisibility();
+  const typeSelect = document.querySelector<HTMLSelectElement>("#f-type")!;
+  const durationWrap =
+    document.querySelector<HTMLDivElement>("#f-duration-wrap")!;
+  function syncDurationVisibility(): void {
+    durationWrap.style.display =
+      typeSelect.value === "auction" ? "block" : "none";
+  }
+  typeSelect.addEventListener("change", syncDurationVisibility);
+  syncDurationVisibility();
 
-const createForm = document.querySelector<HTMLFormElement>("#create-form")!;
-const createError = document.querySelector<HTMLDivElement>("#create-error")!;
-createError.style.display = "none";
-
-createForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
+  const createForm = document.querySelector<HTMLFormElement>("#create-form")!;
+  const createError = document.querySelector<HTMLDivElement>("#create-error")!;
   createError.style.display = "none";
 
-  const type = typeSelect.value as ListingType;
-  const priceDollars = Number(
-    document.querySelector<HTMLInputElement>("#f-price")!.value,
-  );
-  const durationIndex = Number(
-    document.querySelector<HTMLSelectElement>("#f-duration")!.value,
-  );
+  createForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    createError.style.display = "none";
 
-  try {
-    await createListing({
-      sellerId: currentSellerId(),
-      title: document.querySelector<HTMLInputElement>("#f-title")!.value,
-      description:
-        document.querySelector<HTMLTextAreaElement>("#f-description")!.value,
-      category: document.querySelector<HTMLInputElement>("#f-category")!.value,
-      type,
-      priceCents: Math.round(priceDollars * 100),
-      auctionEndsAt:
-        type === "auction"
-          ? new Date(
-              Date.now() + AUCTION_DURATIONS[durationIndex].ms,
-            ).toISOString()
-          : undefined,
-    });
-    createForm.reset();
-    syncDurationVisibility();
-  } catch (err) {
-    createError.textContent =
-      err instanceof ApiError
-        ? err.message
-        : "Something went wrong. Please try again.";
-    createError.classList.add("error");
-    createError.style.display = "block";
+    const type = typeSelect.value as ListingType;
+    const priceDollars = Number(
+      document.querySelector<HTMLInputElement>("#f-price")!.value,
+    );
+    const durationIndex = Number(
+      document.querySelector<HTMLSelectElement>("#f-duration")!.value,
+    );
+
+    try {
+      await createListing({
+        title: document.querySelector<HTMLInputElement>("#f-title")!.value,
+        description:
+          document.querySelector<HTMLTextAreaElement>("#f-description")!.value,
+        category:
+          document.querySelector<HTMLInputElement>("#f-category")!.value,
+        type,
+        priceCents: Math.round(priceDollars * 100),
+        auctionEndsAt:
+          type === "auction"
+            ? new Date(
+                Date.now() + AUCTION_DURATIONS[durationIndex].ms,
+              ).toISOString()
+            : undefined,
+      });
+      createForm.reset();
+      syncDurationVisibility();
+    } catch (err) {
+      createError.textContent =
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Please try again.";
+      createError.classList.add("error");
+      createError.style.display = "block";
+    }
+  });
+
+  connectEvents((evt: MarketplaceEvent) => {
+    switch (evt.type) {
+      case "listing.created":
+        if (evt.data.sellerId === sellerId) {
+          listings.set(evt.data.id, evt.data);
+          renderGrid();
+        }
+        break;
+      case "bid.placed":
+      case "bid.withdrawn":
+      case "order.created":
+        void loadListings();
+        break;
+      case "autobid.set":
+        if (evt.data.listing.sellerId === sellerId) {
+          listings.set(evt.data.listing.id, evt.data.listing);
+          renderGrid();
+        }
+        break;
+    }
+  });
+
+  void loadListings();
+}
+
+void currentIdentity().then((identity) => {
+  renderAccountArea(document.querySelector("#topbar")!, identity);
+  if (canSell(identity)) {
+    renderSellerPage(identity!);
+  } else {
+    renderDenied();
   }
 });
-
-connectEvents((evt: MarketplaceEvent) => {
-  switch (evt.type) {
-    case "listing.created":
-      if (evt.data.sellerId === currentSellerId()) {
-        listings.set(evt.data.id, evt.data);
-        renderGrid();
-      }
-      break;
-    case "bid.placed":
-    case "bid.withdrawn":
-    case "order.created":
-      void loadListings();
-      break;
-    case "autobid.set":
-      if (evt.data.listing.sellerId === currentSellerId()) {
-        listings.set(evt.data.listing.id, evt.data.listing);
-        renderGrid();
-      }
-      break;
-  }
-});
-
-void loadListings();

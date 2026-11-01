@@ -1,5 +1,9 @@
 import "./style.css";
-import { mountNavbar, mountFooter } from "./components/navbar";
+import {
+  mountNavbar,
+  mountFooter,
+  renderAccountArea,
+} from "./components/navbar";
 import { mountChatPanel } from "./components/chatPanel";
 import { connectEvents } from "./events";
 import {
@@ -13,9 +17,8 @@ import {
   listOrders,
   ApiError,
 } from "./api";
-import { BUYERS } from "./identities";
+import { currentIdentity, type AccountIdentity } from "./identity";
 import { escapeHtml } from "./html";
-import { getStored, setStored } from "./storage";
 import { formatCents, lotNumber } from "./format";
 import { statusPill } from "./components/statusPill";
 import { lotCard } from "./components/lotCard";
@@ -30,10 +33,6 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
   <header id="topbar"></header>
   <main class="page">
-    <label class="identity-picker" for="buyer-select">
-      Shopping as
-      <select id="buyer-select"></select>
-    </label>
     <div class="layout">
       <div class="panel">
         <h2>Live auctions &amp; buy-now listings</h2>
@@ -78,17 +77,14 @@ mountChatPanel(document.querySelector<HTMLDivElement>("#chat-mount")!, {
   label: "Shopping Assistant",
 });
 
-const buyerSelect = document.querySelector<HTMLSelectElement>("#buyer-select")!;
-buyerSelect.innerHTML = BUYERS.map(
-  (b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`,
-).join("");
-buyerSelect.value = getStored("mktBuyerId") || BUYERS[0].id;
-buyerSelect.addEventListener("change", () => {
-  setStored("mktBuyerId", buyerSelect.value);
-  void loadOrders();
-});
-function currentBuyerId(): string {
-  return buyerSelect.value;
+let identity: AccountIdentity | null = null;
+function currentBuyerId(): string | null {
+  return identity?.fixtureId ?? null;
+}
+function requireLogin(): boolean {
+  if (currentBuyerId()) return true;
+  window.location.href = "/account/login";
+  return false;
 }
 
 const listings = new Map<string, Listing>();
@@ -327,12 +323,13 @@ async function renderDetail(): Promise<void> {
     .querySelector<HTMLFormElement>("#bid-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!requireLogin()) return;
       const dollars = Number(
         detailPanel.querySelector<HTMLInputElement>("#bid-amount")!.value,
       );
       errorBox.style.display = "none";
       try {
-        await placeBid(listing.id, currentBuyerId(), Math.round(dollars * 100));
+        await placeBid(listing.id, Math.round(dollars * 100));
       } catch (err) {
         showError(err);
       }
@@ -342,16 +339,13 @@ async function renderDetail(): Promise<void> {
     .querySelector<HTMLFormElement>("#autobid-form")
     ?.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!requireLogin()) return;
       const dollars = Number(
         detailPanel.querySelector<HTMLInputElement>("#autobid-amount")!.value,
       );
       errorBox.style.display = "none";
       try {
-        await setAutoBidMax(
-          listing.id,
-          currentBuyerId(),
-          Math.round(dollars * 100),
-        );
+        await setAutoBidMax(listing.id, Math.round(dollars * 100));
       } catch (err) {
         showError(err);
       }
@@ -360,9 +354,10 @@ async function renderDetail(): Promise<void> {
   detailPanel
     .querySelector<HTMLButtonElement>("#buy-now-btn")
     ?.addEventListener("click", async () => {
+      if (!requireLogin()) return;
       errorBox.style.display = "none";
       try {
-        await checkout(listing.id, currentBuyerId());
+        await checkout(listing.id);
         void loadOrders();
       } catch (err) {
         showError(err);
@@ -372,9 +367,10 @@ async function renderDetail(): Promise<void> {
   detailPanel
     .querySelector<HTMLButtonElement>("#claim-win-btn")
     ?.addEventListener("click", async () => {
+      if (!requireLogin()) return;
       errorBox.style.display = "none";
       try {
-        await checkout(listing.id, currentBuyerId());
+        await checkout(listing.id);
         void loadOrders();
       } catch (err) {
         showError(err);
@@ -385,6 +381,7 @@ async function renderDetail(): Promise<void> {
     .querySelectorAll<HTMLButtonElement>(".withdraw-bid-btn")
     .forEach((btn) => {
       btn.addEventListener("click", async () => {
+        if (!requireLogin()) return;
         errorBox.style.display = "none";
         try {
           await withdrawBid(listing.id, btn.dataset.bidId!);
@@ -465,8 +462,13 @@ ordersLedger.addEventListener("click", async (e) => {
 });
 
 async function loadOrders(): Promise<void> {
+  if (!currentBuyerId()) {
+    ordersLedger.innerHTML =
+      '<li class="empty"><a href="/account/login">Log in</a> to see your orders.</li>';
+    return;
+  }
   try {
-    const orders = await listOrders({ buyerId: currentBuyerId() });
+    const orders = await listOrders();
     renderOrders(orders);
   } catch {
     // best-effort; the ledger just keeps its last known state
@@ -543,5 +545,9 @@ setInterval(() => {
   }
 }, 1000);
 
+void currentIdentity().then((resolved) => {
+  identity = resolved;
+  renderAccountArea(document.querySelector("#topbar")!, identity);
+  void loadOrders();
+});
 void loadListings();
-void loadOrders();

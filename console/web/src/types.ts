@@ -1,5 +1,9 @@
 export type ListingType = "buy-now" | "auction";
 
+// Mirrors fixtures.SellerTier (fixtures/types.go) -- a Pro-tier seller gets a
+// stronger model behind their pricing assistant.
+export type SellerTier = "basic" | "pro";
+
 export type ListingStatus =
   | "draft"
   | "active-auction"

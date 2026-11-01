@@ -54,7 +54,6 @@ export function getListing(id: string): Promise<Listing> {
 }
 
 export interface CreateListingInput {
-  sellerId: string;
   title: string;
   description: string;
   category: string;
@@ -64,56 +63,48 @@ export interface CreateListingInput {
 }
 
 export function createListing(input: CreateListingInput): Promise<Listing> {
-  return request("POST", "/api/listings", input);
+  return request("POST", "/account/listings", input);
 }
 
 export function bidHistory(listingId: string): Promise<Bid[]> {
   return request("GET", `/api/listings/${encodeURIComponent(listingId)}/bids`);
 }
 
-export function placeBid(
-  listingId: string,
-  buyerId: string,
-  amountCents: number,
-): Promise<Bid> {
+export function placeBid(listingId: string, amountCents: number): Promise<Bid> {
   return request(
     "POST",
-    `/api/listings/${encodeURIComponent(listingId)}/bids`,
-    { buyerId, amountCents },
+    `/account/listings/${encodeURIComponent(listingId)}/bids`,
+    { amountCents },
   );
 }
 
 export function setAutoBidMax(
   listingId: string,
-  buyerId: string,
   maxCents: number,
 ): Promise<Listing> {
   return request(
     "POST",
-    `/api/listings/${encodeURIComponent(listingId)}/autobid`,
-    { buyerId, maxCents },
+    `/account/listings/${encodeURIComponent(listingId)}/autobid`,
+    { maxCents },
   );
 }
 
 export function withdrawBid(listingId: string, bidId: string): Promise<void> {
   return request(
     "DELETE",
-    `/api/listings/${encodeURIComponent(listingId)}/bids/${encodeURIComponent(bidId)}`,
+    `/account/listings/${encodeURIComponent(listingId)}/bids/${encodeURIComponent(bidId)}`,
   );
 }
 
-export function checkout(listingId: string, buyerId: string): Promise<Order> {
+export function checkout(listingId: string): Promise<Order> {
   return request(
     "POST",
-    `/api/listings/${encodeURIComponent(listingId)}/checkout`,
-    { buyerId },
+    `/account/listings/${encodeURIComponent(listingId)}/checkout`,
   );
 }
 
-export function listOrders(
-  params: { buyerId?: string; sellerId?: string } = {},
-): Promise<Order[]> {
-  return request("GET", `/api/orders${query(params)}`);
+export function listOrders(): Promise<Order[]> {
+  return request("GET", "/account/orders");
 }
 
 export interface ChatResponse {
@@ -136,5 +127,5 @@ export interface Stats {
 }
 
 export function getStats(): Promise<Stats> {
-  return request("GET", "/api/stats");
+  return request("GET", "/account/stats");
 }
