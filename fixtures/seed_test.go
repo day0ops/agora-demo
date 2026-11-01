@@ -6,7 +6,7 @@ import (
 )
 
 func TestSeedReferentialIntegrity(t *testing.T) {
-	sellers, buyers, listings, bids := Seed(time.Now())
+	sellers, buyers, listings, bids, orders := Seed(time.Now())
 
 	sellerIDs := map[string]bool{}
 	for _, s := range sellers {
@@ -63,22 +63,55 @@ func TestSeedReferentialIntegrity(t *testing.T) {
 			t.Errorf("bid %q references unknown buyer %q", b.ID, b.BuyerID)
 		}
 	}
+
+	orderIDs := map[string]bool{}
+	for _, o := range orders {
+		if orderIDs[o.ID] {
+			t.Fatalf("duplicate order ID %q", o.ID)
+		}
+		orderIDs[o.ID] = true
+
+		if !listingIDs[o.ListingID] {
+			t.Errorf("order %q references unknown listing %q", o.ID, o.ListingID)
+		}
+		if !buyerIDs[o.BuyerID] {
+			t.Errorf("order %q references unknown buyer %q", o.ID, o.BuyerID)
+		}
+		if !sellerIDs[o.SellerID] {
+			t.Errorf("order %q references unknown seller %q", o.ID, o.SellerID)
+		}
+	}
 }
 
 // TestSeedListingImageSlugs pins which seeded listings have a committed
-// photo. listing-5 intentionally has none - no cleanly public-domain/CC0
-// licensed photo of a signed 1998 World Series baseball was found (see
-// console/web/public/images/ATTRIBUTIONS.md) - and falls back to its
+// photo. listing-5 and every listing added since intentionally have none -
+// no cleanly public-domain/CC0 licensed photo was sourced for them (see
+// console/web/public/images/ATTRIBUTIONS.md) - and fall back to their
 // category's SVG at render time instead.
 func TestSeedListingImageSlugs(t *testing.T) {
-	_, _, listings, _ := Seed(time.Unix(0, 0).UTC())
+	_, _, listings, _, _ := Seed(time.Unix(0, 0).UTC())
 
 	want := map[string]string{
-		"listing-1": "rolex-submariner",
-		"listing-2": "dune-first-edition",
-		"listing-3": "nikon-f3",
-		"listing-4": "art-deco-lamp",
-		"listing-5": "",
+		"listing-1":  "rolex-submariner",
+		"listing-2":  "dune-first-edition",
+		"listing-3":  "nikon-f3",
+		"listing-4":  "art-deco-lamp",
+		"listing-5":  "",
+		"listing-6":  "",
+		"listing-7":  "",
+		"listing-8":  "",
+		"listing-9":  "",
+		"listing-10": "",
+		"listing-11": "",
+		"listing-12": "",
+		"listing-13": "",
+		"listing-14": "",
+		"listing-15": "",
+		"listing-16": "",
+		"listing-17": "",
+		"listing-18": "",
+		"listing-19": "",
+		"listing-20": "",
 	}
 	for _, l := range listings {
 		if got, ok := want[l.ID]; !ok {
@@ -91,11 +124,16 @@ func TestSeedListingImageSlugs(t *testing.T) {
 
 func TestSeedIsAnchoredToGivenTime(t *testing.T) {
 	anchor := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	_, _, listings, _ := Seed(anchor)
+	_, _, listings, _, orders := Seed(anchor)
 
 	for _, l := range listings {
 		if l.CreatedAt.After(anchor) {
 			t.Errorf("listing %q CreatedAt %v is after the seed anchor %v", l.ID, l.CreatedAt, anchor)
+		}
+	}
+	for _, o := range orders {
+		if o.CreatedAt.After(anchor) {
+			t.Errorf("order %q CreatedAt %v is after the seed anchor %v", o.ID, o.CreatedAt, anchor)
 		}
 	}
 }
