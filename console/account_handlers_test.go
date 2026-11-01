@@ -65,6 +65,17 @@ func TestHandleAccountLoginRejectsAnOffSiteReturnTo(t *testing.T) {
 	}
 }
 
+func TestHandleAccountLoginRejectsABackslashReturnTo(t *testing.T) {
+	srv := newTestServer("http://unused")
+	req := httptest.NewRequest(http.MethodGet, `/account/login?returnTo=/%5Cevil.example.com`, nil)
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
+
+	if loc := rec.Header().Get("Location"); loc != "/" {
+		t.Fatalf("expected a backslash returnTo to fall back to /, got %q", loc)
+	}
+}
+
 func TestHandleCreateListingDerivesSellerIDFromIdentityNotRequestBody(t *testing.T) {
 	var gotBody createListingRequest
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

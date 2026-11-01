@@ -25,8 +25,11 @@ export function currentIdentity(): Promise<AccountIdentity | null> {
   return identityPromise;
 }
 
+// Operators are a pure oversight role -- they have no seller fixture of
+// their own, so they don't get the Sell experience even though they rank
+// above sellers in role priority.
 export function canSell(identity: AccountIdentity | null): boolean {
-  return identity?.role === "sellers" || identity?.role === "operators";
+  return identity?.role === "sellers";
 }
 
 export function canOperate(identity: AccountIdentity | null): boolean {

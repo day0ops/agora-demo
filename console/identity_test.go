@@ -68,6 +68,34 @@ func TestResolveIdentityLeavesFixtureIDEmptyForUnmappedUsername(t *testing.T) {
 	}
 }
 
+func TestResolveIdentityIncludesSellerTierForSellers(t *testing.T) {
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
+	req := httptest.NewRequest("GET", "/account/me", nil)
+	req.Header.Set(forwardedTokenHeader, fakeToken(t, "demo-seller", []string{"sellers"}))
+
+	id, err := srv.resolveIdentity(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id.SellerTier != "pro" {
+		t.Fatalf("expected demo-seller to have sellerTier pro, got %q", id.SellerTier)
+	}
+}
+
+func TestResolveIdentityLeavesSellerTierEmptyForBuyers(t *testing.T) {
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
+	req := httptest.NewRequest("GET", "/account/me", nil)
+	req.Header.Set(forwardedTokenHeader, fakeToken(t, "demo-buyer", []string{"buyers"}))
+
+	id, err := srv.resolveIdentity(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id.SellerTier != "" {
+		t.Fatalf("expected no sellerTier for a buyer, got %q", id.SellerTier)
+	}
+}
+
 func TestResolveIdentityRejectsAMalformedToken(t *testing.T) {
 	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
 	req := httptest.NewRequest("GET", "/account/me", nil)

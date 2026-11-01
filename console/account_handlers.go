@@ -40,10 +40,22 @@ func (s *consoleServer) handleAccountMe(w http.ResponseWriter, r *http.Request) 
 // restricted to a same-site path to avoid being used as an open redirect.
 func (s *consoleServer) handleAccountLogin(w http.ResponseWriter, r *http.Request) {
 	returnTo := r.URL.Query().Get("returnTo")
-	if returnTo == "" || !strings.HasPrefix(returnTo, "/") || strings.HasPrefix(returnTo, "//") {
+	if !isSameSitePath(returnTo) {
 		returnTo = "/"
 	}
 	http.Redirect(w, r, returnTo, http.StatusFound)
+}
+
+// isSameSitePath reports whether returnTo is safe to redirect to without
+// leaving this site. A bare "/" prefix isn't enough on its own: browsers
+// normalize backslashes to forward slashes, so "/\evil.example.com" would
+// pass a plain HasPrefix("/") check yet render as the protocol-relative
+// "//evil.example.com" -- an off-site redirect.
+func isSameSitePath(returnTo string) bool {
+	if returnTo == "" || !strings.HasPrefix(returnTo, "/") || strings.HasPrefix(returnTo, "//") {
+		return false
+	}
+	return !strings.ContainsRune(returnTo, '\\')
 }
 
 func (s *consoleServer) handleCreateListing(w http.ResponseWriter, r *http.Request) {

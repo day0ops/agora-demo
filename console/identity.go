@@ -11,19 +11,28 @@ import (
 // identity is the console's view of the logged-in visitor, resolved from
 // their forwarded Keycloak access token's claims.
 type identity struct {
-	Username  string   `json:"username"`
-	Groups    []string `json:"groups"`
-	Role      string   `json:"role"`
-	FixtureID string   `json:"fixtureId,omitempty"`
+	Username   string   `json:"username"`
+	Groups     []string `json:"groups"`
+	Role       string   `json:"role"`
+	FixtureID  string   `json:"fixtureId,omitempty"`
+	SellerTier string   `json:"sellerTier,omitempty"`
 }
 
-// fixtureIDByUsername maps a real logged-in demo user to the pre-seeded
-// fixture identity their bids/listings/orders are attributed to -- see
-// agentic-field-kit's agora-real-identity-ux design doc. Usernames with no
-// entry here (e.g. demo-operator) have no buyer/seller fixture of their own.
-var fixtureIDByUsername = map[string]string{
-	"demo-buyer":  "buyer-1",
-	"demo-seller": "seller-1",
+// demoAccount is a real logged-in demo user's pre-seeded fixture mapping --
+// see agentic-field-kit's agora-real-identity-ux design doc. SellerTier is
+// only meaningful for a seller account (drives the console's "Pro pricing
+// assistant" badge); zero value for every other role.
+type demoAccount struct {
+	FixtureID  string
+	SellerTier string
+}
+
+// demoAccountsByUsername maps a username to its fixture mapping. Usernames
+// with no entry (e.g. demo-operator) have no buyer/seller fixture of their
+// own -- operators are a pure oversight role, not also a seller or buyer.
+var demoAccountsByUsername = map[string]demoAccount{
+	"demo-buyer":  {FixtureID: "buyer-1"},
+	"demo-seller": {FixtureID: "seller-1", SellerTier: "pro"},
 }
 
 // rolePriority orders the three marketplace groups by precedence, highest
@@ -81,10 +90,12 @@ func (s *consoleServer) resolveIdentity(r *http.Request) (*identity, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve identity: %w", err)
 	}
+	account := demoAccountsByUsername[claims.PreferredUsername]
 	return &identity{
-		Username:  claims.PreferredUsername,
-		Groups:    claims.Groups,
-		Role:      highestPriorityRole(claims.Groups),
-		FixtureID: fixtureIDByUsername[claims.PreferredUsername],
+		Username:   claims.PreferredUsername,
+		Groups:     claims.Groups,
+		Role:       highestPriorityRole(claims.Groups),
+		FixtureID:  account.FixtureID,
+		SellerTier: account.SellerTier,
 	}, nil
 }

@@ -1,7 +1,7 @@
 import { initTheme, toggleTheme } from "../theme";
 import { icons } from "../icons";
 import { escapeHtml } from "../html";
-import type { AccountIdentity } from "../identity";
+import { canSell, canOperate, type AccountIdentity } from "../identity";
 
 export const APP_NAME = "Agora";
 export const APP_VERSION = "0.1.0";
@@ -61,17 +61,14 @@ export function renderAccountArea(
     ? `<span class="account-name">${escapeHtml(identity.username)}</span><a class="account-link" href="/account/logout">Log out</a>`
     : `<a class="account-link" href="/account/login">Login</a>`;
 
-  const canSell =
-    identity?.role === "sellers" || identity?.role === "operators";
-  const canOperate = identity?.role === "operators";
   const sellLink = root.querySelector<HTMLAnchorElement>(
     'nav a[data-key="sell"]',
   );
   const opsLink = root.querySelector<HTMLAnchorElement>(
     'nav a[data-key="ops"]',
   );
-  if (sellLink) sellLink.style.display = canSell ? "" : "none";
-  if (opsLink) opsLink.style.display = canOperate ? "" : "none";
+  if (sellLink) sellLink.style.display = canSell(identity) ? "" : "none";
+  if (opsLink) opsLink.style.display = canOperate(identity) ? "" : "none";
 }
 
 export function mountFooter(root: HTMLElement): void {
