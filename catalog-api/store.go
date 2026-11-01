@@ -48,6 +48,19 @@ func newDefaultID(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, idCounter.Add(1))
 }
 
+// numericSuffix extracts the trailing "-N" numeric suffix from an ID like
+// "listing-7" or "order-3", shared by seedIDFloor (listings/bids, seeded via
+// NewStore) and SeedOrders (orders.go, seeded separately -- see its own
+// comment for why).
+func numericSuffix(id string) (int64, bool) {
+	idx := strings.LastIndexByte(id, '-')
+	if idx < 0 {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(id[idx+1:], 10, 64)
+	return n, err == nil
+}
+
 // seedIDFloor scans seeded IDs for the highest numeric suffix (fixtures.Seed
 // hardcodes IDs like "listing-1") so NewStore can raise idCounter above it
 // before generating any real ID. Without this, idCounter's zero start value
@@ -56,11 +69,7 @@ func newDefaultID(prefix string) string {
 func seedIDFloor(listings []fixtures.Listing, bids []fixtures.Bid) int64 {
 	var max int64
 	consider := func(id string) {
-		idx := strings.LastIndexByte(id, '-')
-		if idx < 0 {
-			return
-		}
-		if n, err := strconv.ParseInt(id[idx+1:], 10, 64); err == nil && n > max {
+		if n, ok := numericSuffix(id); ok && n > max {
 			max = n
 		}
 	}
