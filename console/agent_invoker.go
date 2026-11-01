@@ -40,9 +40,10 @@ func (AgentInvokerStub) Send(context.Context, string, string, string, string) (s
 var ErrNotAuthenticated = errors.New("not authenticated: please log in")
 
 // AgentInvokerHTTP calls a kagent Agent's A2A endpoint through agentgateway,
-// using the standard A2A JSON-RPC 2.0 "message/send" method at
-// <baseURL>/agents/<agentName>, authenticated with the caller's own
-// forwarded Keycloak access token. See docs/superpowers/specs/
+// using kagent's A2A JSON-RPC "SendMessage" method (PascalCase, not the A2A
+// spec's "message/send" -- confirmed live against this cluster's enterprise
+// kagent-controller build) at <baseURL>/agents/<agentName>, authenticated
+// with the caller's own forwarded Keycloak access token. See docs/superpowers/specs/
 // 2026-11-01-agora-oidc-agentgateway-a2a-design.md in agentic-field-kit for
 // why this goes through agentgateway rather than a kagent-controller client
 // library: kagent's own AgentInstance gRPC API (the recipe the sibling
@@ -128,10 +129,10 @@ func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, messag
 	reqBody := jsonRPCRequest{
 		JSONRPC: "2.0",
 		ID:      sessionID,
-		Method:  "message/send",
+		Method:  "SendMessage",
 		Params: a2aSendMessageParams{
 			Message: a2aMessage{
-				Role:      "user",
+				Role:      "ROLE_USER",
 				Parts:     []a2aPart{{Kind: "text", Text: message}},
 				MessageID: fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 				ContextID: sessionID,

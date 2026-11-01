@@ -65,8 +65,11 @@ func TestAgentInvokerHTTPSendsCorrectRequestAndParsesMessageResult(t *testing.T)
 	if gotAuth != "Bearer test-token" {
 		t.Fatalf("expected Authorization: Bearer test-token, got %q", gotAuth)
 	}
-	if gotBody.Method != "message/send" {
-		t.Fatalf("expected method message/send, got %q", gotBody.Method)
+	if gotBody.Method != "SendMessage" {
+		t.Fatalf("expected method SendMessage, got %q", gotBody.Method)
+	}
+	if gotBody.Params.Message.Role != "ROLE_USER" {
+		t.Fatalf("expected role ROLE_USER, got %q", gotBody.Params.Message.Role)
 	}
 	if gotBody.Params.Message.ContextID != "session-1" {
 		t.Fatalf("expected contextId session-1, got %q", gotBody.Params.Message.ContextID)
