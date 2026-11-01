@@ -1,18 +1,17 @@
-import { defineConfig } from 'vite';
-import { resolve } from 'path';
+/// <reference types="vitest/config" />
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  plugins: [react()],
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        index: resolve(__dirname, 'index.html'),
-        shop: resolve(__dirname, 'shop.html'),
-        sell: resolve(__dirname, 'sell.html'),
-        ops: resolve(__dirname, 'ops.html'),
-      },
-    },
   },
-  server: { proxy: { '/api': 'http://localhost:8090' } },
+  server: { proxy: { "/api": "http://localhost:8090", "/account": "http://localhost:8090" } },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
+    globals: true,
+  },
 });
