@@ -16,6 +16,10 @@ import (
 //go:embed all:web/dist
 var webDist embed.FS
 
+// version is set at build time via -ldflags "-X main.version=<tag>" (see
+// Dockerfile and release.yml) -- "dev" when built without that flag.
+var version = "dev"
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

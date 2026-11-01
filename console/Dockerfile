@@ -15,13 +15,14 @@ COPY console/web/ ./
 RUN npm run build
 
 FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS builder
+ARG VERSION=dev
 WORKDIR /src
 COPY fixtures/ ./fixtures/
 COPY console/ ./console/
 COPY --from=web /web/dist ./console/web/dist
 WORKDIR /src/console
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/app .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o /out/app .
 
 FROM gcr.io/distroless/static-debian12
 COPY --from=builder /out/app /app

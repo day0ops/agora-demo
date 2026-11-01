@@ -28,6 +28,7 @@ func (s *consoleServer) routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/listings/{id}/bids", s.handleBidHistory)
 	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
+	mux.HandleFunc("GET /api/version", s.handleVersion)
 	s.accountRoutes(mux)
 	return mux
 }
@@ -68,6 +69,14 @@ func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	return dec.Decode(dst)
+}
+
+type versionResponse struct {
+	Version string `json:"version"`
+}
+
+func (s *consoleServer) handleVersion(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, versionResponse{Version: version})
 }
 
 func (s *consoleServer) handleListListings(w http.ResponseWriter, r *http.Request) {

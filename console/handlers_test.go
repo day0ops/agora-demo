@@ -18,6 +18,23 @@ func newTestServer(catalogURL string) *consoleServer {
 	return newConsoleServer(newCatalogClient(catalogURL), newEventHub(), AgentInvokerStub{})
 }
 
+func TestHandleVersionReturnsBuildVersion(t *testing.T) {
+	srv := newTestServer("http://unused")
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var resp versionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Version != version {
+		t.Fatalf("expected version %q, got %q", version, resp.Version)
+	}
+}
+
 func TestHandleListListingsRelaysCatalogData(t *testing.T) {
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode([]fixtures.Listing{{ID: "l1"}})

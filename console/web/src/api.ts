@@ -129,3 +129,11 @@ export interface Stats {
 export function getStats(): Promise<Stats> {
   return request("GET", "/account/stats");
 }
+
+export interface VersionInfo {
+  version: string;
+}
+
+export function getVersion(): Promise<VersionInfo> {
+  return request("GET", "/api/version");
+}
