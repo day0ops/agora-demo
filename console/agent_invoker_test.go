@@ -48,7 +48,7 @@ func TestAgentInvokerHTTPSendsCorrectRequestAndParsesMessageResult(t *testing.T)
 	}))
 	t.Cleanup(srv.Close)
 
-	inv := newAgentInvokerHTTP(srv.URL)
+	inv := newAgentInvokerHTTP(srv.URL + "/agents/kagent-system")
 	reply, err := inv.Send(context.Background(), "shopping-assistant", "session-1", "what's on sale?", "test-token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -59,8 +59,8 @@ func TestAgentInvokerHTTPSendsCorrectRequestAndParsesMessageResult(t *testing.T)
 	if gotMethod != http.MethodPost {
 		t.Fatalf("expected POST, got %s", gotMethod)
 	}
-	if gotPath != "/agents/shopping-assistant" {
-		t.Fatalf("expected path /agents/shopping-assistant, got %q", gotPath)
+	if gotPath != "/agents/kagent-system/shopping-assistant" {
+		t.Fatalf("expected path /agents/kagent-system/shopping-assistant, got %q", gotPath)
 	}
 	if gotAuth != "Bearer test-token" {
 		t.Fatalf("expected Authorization: Bearer test-token, got %q", gotAuth)
