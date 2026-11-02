@@ -19,7 +19,7 @@ This repository holds the application tier: the catalog backend, the purpose-bui
 | `mcp-servers/pricing-mcp/` | MCP server: `suggest_price` for sellers - real comps from `catalog-api`'s sold listings, falling back to a static baseline with no sales history yet | Done |
 | `mcp-servers/orders-mcp/` | MCP server: `checkout`, `get_order`, `list_orders` - a thin client over `catalog-api`'s checkout/orders endpoints | Done |
 | `mcp-servers/trust-mcp/` | MCP server: `score_bid_risk` (pluggable `RiskScorer`, currently a local heuristic - see note below) and `check_seller_reputation` | Done |
-| `console/` | Marketplace console: Go backend + embedded Vite SPA with buyer (`/shop.html`), seller (`/sell.html`), and operator (`/ops.html`) views | Done |
+| `console/` | Marketplace console: Go backend + embedded React SPA with buyer (`/shop`), seller (`/sell`), and operator (`/ops`) routes | Done |
 
 ### A note on Jev
 
@@ -63,7 +63,7 @@ GET    /api/stats                        active listings / total orders / connec
 
 Write endpoints relay catalog-api's own status code and error message rather than flattening every failure to 400, so the frontend can tell "not found" apart from "conflict" apart from "forbidden". Every successful write also publishes an event onto the SSE feed (`listing.created`, `bid.placed`, `bid.withdrawn`, `autobid.set`, `order.created`), which all three frontend views subscribe to for live updates.
 
-The frontend is a vanilla TypeScript + Vite SPA (no framework, matching the sibling `fraud-investigation-swarm` console's conventions) with one HTML entry point per view - `index.html` (landing page), `shop.html`, `sell.html`, `ops.html` - built to `console/web/dist` and embedded into the Go binary via `//go:embed`. There's no authentication yet: each view has a plain identity picker (`console/web/src/identities.ts`) mirroring the accounts `fixtures.Seed()` creates, so the SE picks who they're "acting as" during a demo.
+The frontend is a single-page React app (`react-router-dom` for the landing, shop, sell, and ops routes) with one `index.html` entry point, built to `console/web/dist` and embedded into the Go binary via `//go:embed`. Tests run on Vitest + React Testing Library. There's no demo identity picker: each route resolves the caller's identity from `GET /account/me`, which reads the forwarded Keycloak access token's claims set by `oidc-gateway` - a logged-out visit triggers that gate's redirect-to-Keycloak flow, and the resolved role (buyer, seller, or operator) drives which view the console renders.
 
 ### Design system
 
@@ -80,7 +80,7 @@ The shop and sell views each have a chat panel against a named Substrate concier
 
 ### Explore Execution drawer
 
-Every sold listing, order, and relevant activity-feed entry on the Shop and Ops views has a "Behind the scenes" trigger (`console/web/src/components/executionDrawer.ts`) that opens a focus-trapped, three-level drawer:
+Every sold listing, order, and relevant activity-feed entry on the Shop and Ops views has a "Behind the scenes" trigger (`console/web/src/components/ExecutionDrawer.tsx`) that opens a focus-trapped, three-level drawer:
 
 - **Summary** - real today. It shows the trust check actually run in-process by `catalog-api` when the bid was placed (score and flagged reasons, or "not available" for bids that predate the trust check).
 - **Agent Journey** and **Technical Inspector** - built, and honestly empty. Both are wired to `console/web/src/adapters/executionAdapter.ts` and `substrateAdapter.ts`, which always return an empty result today because nothing populates a bid's or order's correlation ID yet - there is no live Agent Substrate run to assemble a journey or inspector trace from. Both sections render a plain "not available" state rather than fabricating steps, and need no caller changes once a real adapter is wired in behind a live substrate and real agents.
@@ -89,7 +89,7 @@ Keyboard behavior is verified: `role="dialog"` with `aria-modal`, focus moves in
 
 ### Operator Studio Agent Substrate panel
 
-The Ops view (`/ops.html`) has an "Agent Substrate" panel (`console/web/src/components/substrateTopology.ts`) showing the real column shape a live actor-status table will have - Actor, State, Pool, Last activity - and, like the drawer's Technical Inspector, is honestly empty today: `substrateAdapter.ts`'s `getSubstrateStatus()` always resolves "empty" because no live Agent Substrate cluster is wired to this console yet. The body renders the same not-connected banner spanning all four columns rather than fabricated rows, and needs no caller changes once a real adapter is wired in. Verified responsive at both desktop (1280px) and mobile (390px) widths with no overflow or clipping.
+The Ops view (`/ops`) has an "Agent Substrate" panel (`console/web/src/components/SubstrateTopology.tsx`) showing the real column shape a live actor-status table will have - Actor, State, Pool, Last activity - and, like the drawer's Technical Inspector, is honestly empty today: `substrateAdapter.ts`'s `getSubstrateStatus()` always resolves "empty" because no live Agent Substrate cluster is wired to this console yet. The body renders the same not-connected banner spanning all four columns rather than fabricated rows, and needs no caller changes once a real adapter is wired in. Verified responsive at both desktop (1280px) and mobile (390px) widths with no overflow or clipping.
 
 ## Development
 
