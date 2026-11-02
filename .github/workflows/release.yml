@@ -96,6 +96,7 @@ jobs:
           - { name: orders-mcp, dockerfile: mcp-servers/orders-mcp/Dockerfile }
           - { name: pricing-mcp, dockerfile: mcp-servers/pricing-mcp/Dockerfile }
           - { name: trust-mcp, dockerfile: mcp-servers/trust-mcp/Dockerfile }
+          - { name: catalog-mcp, dockerfile: mcp-servers/catalog-mcp/Dockerfile }
     permissions:
       contents: read
       id-token: write # required for GCP Workload Identity Federation

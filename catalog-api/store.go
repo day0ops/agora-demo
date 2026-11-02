@@ -1,9 +1,7 @@
 // Command catalog-api serves the marketplace's listings and bids as a REST
 // API. It is the single source of truth for marketplace domain data: the
-// purpose-built MCP servers (bids-mcp, pricing-mcp, trust-mcp, orders-mcp)
-// call into it rather than holding their own copy, and its REST surface
-// doubles as the OpenAPI source agentgateway wraps into listings-mcp with no
-// MCP server code of its own.
+// purpose-built MCP servers (bids-mcp, pricing-mcp, trust-mcp, orders-mcp,
+// catalog-mcp) call into it rather than holding their own copy.
 package main
 
 import (
@@ -89,9 +87,26 @@ func seedIDFloor(listings []fixtures.Listing, bids []fixtures.Bid) int64 {
 const bidIncrementCents = 100
 
 // ListingFilter narrows ListListings. A zero-value field matches any listing.
+// MaxPriceCents/MinPriceCents compare against each listing's effective price
+// (an active auction's current bid once one exists, its starting price
+// otherwise) - the number a buyer would actually see and pay, not
+// necessarily PriceCents.
 type ListingFilter struct {
-	Status   fixtures.ListingStatus
-	SellerID string
+	Status        fixtures.ListingStatus
+	SellerID      string
+	Category      string
+	MaxPriceCents int64
+	MinPriceCents int64
+	Keyword       string
+}
+
+// effectivePrice is what a buyer would actually pay right now: an active
+// auction's current bid once one exists, its starting price otherwise.
+func effectivePrice(l fixtures.Listing) int64 {
+	if l.Type == fixtures.ListingTypeAuction && l.CurrentBidCents > 0 {
+		return l.CurrentBidCents
+	}
+	return l.PriceCents
 }
 
 // autoBidCeiling is a buyer's standing willingness to pay for a listing, plus
@@ -196,6 +211,20 @@ func (s *Store) ListListings(filter ListingFilter) []fixtures.Listing {
 			continue
 		}
 		if filter.SellerID != "" && l.SellerID != filter.SellerID {
+			continue
+		}
+		if filter.Category != "" && !strings.EqualFold(l.Category, filter.Category) {
+			continue
+		}
+		if filter.MaxPriceCents > 0 && effectivePrice(l) > filter.MaxPriceCents {
+			continue
+		}
+		if filter.MinPriceCents > 0 && effectivePrice(l) < filter.MinPriceCents {
+			continue
+		}
+		if filter.Keyword != "" &&
+			!strings.Contains(strings.ToLower(l.Title), strings.ToLower(filter.Keyword)) &&
+			!strings.Contains(strings.ToLower(l.Description), strings.ToLower(filter.Keyword)) {
 			continue
 		}
 		result = append(result, copyListing(l))

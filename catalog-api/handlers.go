@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/day0ops/agora-demo/fixtures"
@@ -34,9 +35,16 @@ func NewMux(store *Store) *http.ServeMux {
 
 func handleListListings(store *Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		maxPriceCents, _ := strconv.ParseInt(q.Get("maxPriceCents"), 10, 64)
+		minPriceCents, _ := strconv.ParseInt(q.Get("minPriceCents"), 10, 64)
 		filter := ListingFilter{
-			Status:   fixtures.ListingStatus(r.URL.Query().Get("status")),
-			SellerID: r.URL.Query().Get("sellerId"),
+			Status:        fixtures.ListingStatus(q.Get("status")),
+			SellerID:      q.Get("sellerId"),
+			Category:      q.Get("category"),
+			MaxPriceCents: maxPriceCents,
+			MinPriceCents: minPriceCents,
+			Keyword:       q.Get("q"),
 		}
 		writeJSON(w, http.StatusOK, store.ListListings(filter))
 	}

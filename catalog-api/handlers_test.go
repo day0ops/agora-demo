@@ -57,6 +57,31 @@ func TestHandleListListings(t *testing.T) {
 	}
 }
 
+func TestHandleListListingsFiltersByCategoryAndMaxPrice(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	store := newStoreWithIDFunc(
+		[]fixtures.Listing{
+			{ID: "cam1", Category: "cameras", Title: "Nikon F3", Type: fixtures.ListingTypeBuyNow, PriceCents: 45000},
+			{ID: "watch1", Category: "watches", Title: "Rolex", Type: fixtures.ListingTypeAuction, PriceCents: 500000, AuctionEndsAt: &end},
+		},
+		nil,
+		func(prefix string) string { return prefix + "-generated" },
+	)
+	srv := httptest.NewServer(NewMux(store))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Get(srv.URL + "/listings?category=cameras&maxPriceCents=50000")
+	if err != nil {
+		t.Fatalf("GET /listings: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	listings := decodeJSON[[]fixtures.Listing](t, resp)
+	if len(listings) != 1 || listings[0].ID != "cam1" {
+		t.Fatalf("expected only cam1, got %+v", listings)
+	}
+}
+
 func TestHandleGetListingNotFound(t *testing.T) {
 	srv, _ := newTestServer(t)
 
