@@ -83,11 +83,10 @@ func TestSeedReferentialIntegrity(t *testing.T) {
 	}
 }
 
-// TestSeedListingImageSlugs pins which seeded listings have a committed
-// photo. listing-5 and every listing added since intentionally have none -
-// no cleanly public-domain/CC0 licensed photo was sourced for them (see
-// console/web/public/images/ATTRIBUTIONS.md) - and fall back to their
-// category's SVG at render time instead.
+// TestSeedListingImageSlugs pins which photo slug each seeded listing
+// resolves to (see console/web/public/images/ATTRIBUTIONS.md for sourcing).
+// Listings created through the Sell form at runtime have no slug and fall
+// back to their category's SVG instead.
 func TestSeedListingImageSlugs(t *testing.T) {
 	_, _, listings, _, _ := Seed(time.Unix(0, 0).UTC())
 
@@ -96,22 +95,22 @@ func TestSeedListingImageSlugs(t *testing.T) {
 		"listing-2":  "dune-first-edition",
 		"listing-3":  "nikon-f3",
 		"listing-4":  "art-deco-lamp",
-		"listing-5":  "",
-		"listing-6":  "",
-		"listing-7":  "",
-		"listing-8":  "",
-		"listing-9":  "",
-		"listing-10": "",
-		"listing-11": "",
-		"listing-12": "",
-		"listing-13": "",
-		"listing-14": "",
-		"listing-15": "",
-		"listing-16": "",
-		"listing-17": "",
-		"listing-18": "",
-		"listing-19": "",
-		"listing-20": "",
+		"listing-5":  "baseball-signed",
+		"listing-6":  "sony-headphones",
+		"listing-7":  "abstract-oil-painting",
+		"listing-8":  "fender-stratocaster",
+		"listing-9":  "omega-speedmaster",
+		"listing-10": "polaroid-sx70",
+		"listing-11": "dracula-first-edition",
+		"listing-12": "gameboy-color",
+		"listing-13": "bronze-sculpture",
+		"listing-14": "yamaha-acoustic-guitar",
+		"listing-15": "mid-century-armchair",
+		"listing-16": "nintendo-64",
+		"listing-17": "vinyl-record",
+		"listing-18": "ipad-pro",
+		"listing-19": "watercolor-landscape",
+		"listing-20": "antique-pocket-watch",
 	}
 	for _, l := range listings {
 		if got, ok := want[l.ID]; !ok {

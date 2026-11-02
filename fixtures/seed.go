@@ -107,6 +107,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 38000,
 			AuctionEndsAt:   &endedSold,
 			CreatedAt:       now.Add(-72 * time.Hour),
+			Image:           "baseball-signed",
 		},
 		{
 			ID:          "listing-6",
@@ -118,6 +119,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusActiveBuyNow,
 			PriceCents:  18000,
 			CreatedAt:   now.Add(-3 * time.Hour),
+			Image:       "sony-headphones",
 		},
 		{
 			ID:              "listing-7",
@@ -131,6 +133,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 95000,
 			AuctionEndsAt:   &closingPainting,
 			CreatedAt:       now.Add(-20 * time.Hour),
+			Image:           "abstract-oil-painting",
 		},
 		{
 			ID:              "listing-8",
@@ -144,6 +147,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &closingGuitar,
 			CreatedAt:       now.Add(-2 * time.Hour),
+			Image:           "fender-stratocaster",
 		},
 		{
 			ID:              "listing-9",
@@ -157,6 +161,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 470000,
 			AuctionEndsAt:   &closingSoon2,
 			CreatedAt:       now.Add(-30 * time.Hour),
+			Image:           "omega-speedmaster",
 		},
 		{
 			ID:          "listing-10",
@@ -168,6 +173,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusActiveBuyNow,
 			PriceCents:  22000,
 			CreatedAt:   now.Add(-10 * time.Hour),
+			Image:       "polaroid-sx70",
 		},
 		{
 			ID:              "listing-11",
@@ -181,6 +187,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &closingDracula,
 			CreatedAt:       now.Add(-5 * time.Hour),
+			Image:           "dracula-first-edition",
 		},
 		{
 			ID:          "listing-12",
@@ -192,6 +199,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusActiveBuyNow,
 			PriceCents:  9000,
 			CreatedAt:   now.Add(-1 * time.Hour),
+			Image:       "gameboy-color",
 		},
 		{
 			ID:              "listing-13",
@@ -205,6 +213,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &draftAuctionEnd,
 			CreatedAt:       now.Add(-2 * time.Hour),
+			Image:           "bronze-sculpture",
 		},
 		{
 			ID:          "listing-14",
@@ -216,6 +225,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusDraft,
 			PriceCents:  35000,
 			CreatedAt:   now.Add(-1 * time.Hour),
+			Image:       "yamaha-acoustic-guitar",
 		},
 		{
 			ID:          "listing-15",
@@ -227,6 +237,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusWithdrawn,
 			PriceCents:  60000,
 			CreatedAt:   now.Add(-20 * time.Hour),
+			Image:       "mid-century-armchair",
 		},
 		{
 			ID:              "listing-16",
@@ -240,6 +251,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &withdrawnAuctionEnd,
 			CreatedAt:       now.Add(-5 * 24 * time.Hour),
+			Image:           "nintendo-64",
 		},
 		{
 			ID:              "listing-17",
@@ -253,6 +265,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 72000,
 			AuctionEndsAt:   &endedSold2,
 			CreatedAt:       now.Add(-4 * 24 * time.Hour),
+			Image:           "vinyl-record",
 		},
 		{
 			ID:          "listing-18",
@@ -264,6 +277,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusSold,
 			PriceCents:  80000,
 			CreatedAt:   now.Add(-6 * 24 * time.Hour),
+			Image:       "ipad-pro",
 		},
 		{
 			ID:          "listing-19",
@@ -275,6 +289,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			Status:      ListingStatusActiveBuyNow,
 			PriceCents:  25000,
 			CreatedAt:   now.Add(-30 * time.Minute),
+			Image:       "watercolor-landscape",
 		},
 		{
 			ID:              "listing-20",
@@ -288,6 +303,7 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 			CurrentBidCents: 0,
 			AuctionEndsAt:   &endedUnsold2,
 			CreatedAt:       now.Add(-20 * 24 * time.Hour),
+			Image:           "antique-pocket-watch",
 		},
 	}
 
