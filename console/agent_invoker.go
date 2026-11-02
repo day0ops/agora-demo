@@ -43,13 +43,19 @@ var ErrNotAuthenticated = errors.New("not authenticated: please log in")
 // AgentInvokerHTTP calls a kagent Agent's A2A endpoint through agentgateway,
 // using kagent's A2A JSON-RPC "SendMessage" method (PascalCase, not the A2A
 // spec's "message/send" -- confirmed live against this cluster's enterprise
-// kagent-controller build) at <baseURL>/agents/<agentName>, authenticated
-// with the caller's own forwarded Keycloak access token. See docs/superpowers/specs/
-// 2026-11-01-agora-oidc-agentgateway-a2a-design.md in agentic-field-kit for
-// why this goes through agentgateway rather than a kagent-controller client
-// library: kagent's own AgentInstance gRPC API (the recipe the sibling
-// fraud-ops-console demo used) no longer exists at the Agent/Harness/
-// AgentTemplate CRD generation this cluster runs.
+// kagent-controller build) at <baseURL>/<agentName>, authenticated with the
+// caller's own forwarded Keycloak access token. BaseURL must already include
+// kagent-controller's own path-mux prefix (/agents/<namespace>) -- the
+// HTTPRoute a substrate-a2a-route feature step creates matches the full
+// /agents/<namespace>/<agentName> path, and omitting the namespace here
+// makes the request fall through to whatever other route shares this
+// Gateway (confirmed live: agora-console's own catch-all route, returning
+// its SPA shell with a 200 instead of reaching the agent at all). See
+// docs/superpowers/specs/2026-11-01-agora-oidc-agentgateway-a2a-design.md in
+// agentic-field-kit for why this goes through agentgateway rather than a
+// kagent-controller client library: kagent's own AgentInstance gRPC API (the
+// recipe the sibling fraud-ops-console demo used) no longer exists at the
+// Agent/Harness/AgentTemplate CRD generation this cluster runs.
 type AgentInvokerHTTP struct {
 	BaseURL string
 	Client  *http.Client
@@ -145,7 +151,7 @@ func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, messag
 		return "", fmt.Errorf("marshal A2A request: %w", err)
 	}
 
-	reqURL := a.BaseURL + "/agents/" + url.PathEscape(agentName)
+	reqURL := a.BaseURL + "/" + url.PathEscape(agentName)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("build A2A request: %w", err)
