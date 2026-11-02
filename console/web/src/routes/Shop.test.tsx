@@ -76,6 +76,33 @@ describe("Shop", () => {
     ).toBeInTheDocument();
   });
 
+  it("closes the detail panel and returns to the placeholder when the close button is clicked", async () => {
+    vi.spyOn(api, "listListings").mockResolvedValue([activeAuction]);
+    vi.spyOn(api, "bidHistory").mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderShop({
+      username: "demo-buyer",
+      groups: ["buyers"],
+      role: "buyers",
+      fixtureId: "buyer-1",
+    });
+
+    const card = await screen.findByText("1965 Rolex Submariner");
+    await user.click(card);
+    expect(
+      await screen.findByText("Vintage automatic dive watch."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(
+      screen.queryByText("Vintage automatic dive watch."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Select a listing to view details and place a bid."),
+    ).toBeInTheDocument();
+  });
+
   it("redirects to /account/login instead of placing a bid when logged out", async () => {
     vi.spyOn(api, "listListings").mockResolvedValue([activeAuction]);
     vi.spyOn(api, "bidHistory").mockResolvedValue([]);

@@ -10,7 +10,7 @@ import {
   useExecutionDrawer,
   type OpenExecutionDrawerOptions,
 } from "../components/ExecutionDrawer";
-import { IconShop, IconScan } from "../icons";
+import { IconShop, IconScan, IconClose } from "../icons";
 import { useIdentity } from "../hooks/useIdentity";
 import { useEvents } from "../hooks/useEvents";
 import {
@@ -40,12 +40,14 @@ function DetailPanel({
   requireLogin,
   onOrdersChanged,
   onOpenExecutionDrawer,
+  onClose,
 }: {
   listing: Listing | null;
   buyerId: string | null;
   requireLogin: () => boolean;
   onOrdersChanged: () => void;
   onOpenExecutionDrawer: (opts: OpenExecutionDrawerOptions) => void;
+  onClose: () => void;
 }) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +107,17 @@ function DetailPanel({
 
   return (
     <div className="panel detail">
-      <h2>Listing</h2>
+      <div className="panel-head">
+        <h2>Listing</h2>
+        <button
+          type="button"
+          className="ghost"
+          aria-label="Close"
+          onClick={onClose}
+        >
+          <IconClose />
+        </button>
+      </div>
       <div className="detail">
         <ListingImage listing={listing} eager />
         {isSold && <span className="sold-stamp">Sold</span>}
@@ -534,6 +546,7 @@ export function Shop() {
               requireLogin={requireLogin}
               onOrdersChanged={() => void loadOrders()}
               onOpenExecutionDrawer={openExecutionDrawer}
+              onClose={() => setSelectedId(null)}
             />
             <div className="panel chat-panel">
               <h2>Shopping Assistant</h2>
