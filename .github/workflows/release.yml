@@ -134,7 +134,7 @@ jobs:
           NEW_TAG: ${{ needs.tag-and-release.outputs.new_tag }}
         run: |
           set -euo pipefail
-          SERVICES="catalog-api console bids-mcp orders-mcp pricing-mcp trust-mcp"
+          SERVICES="catalog-api console bids-mcp orders-mcp pricing-mcp trust-mcp catalog-mcp"
           # tag-and-release already created this release (without the images, which
           # don't exist until build-push above runs) -- append rather than fail,
           # instead of clobbering its auto-generated notes.
