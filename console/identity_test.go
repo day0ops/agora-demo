@@ -40,6 +40,20 @@ func TestResolveIdentityMapsDemoBuyerToBuyerOneFixture(t *testing.T) {
 	}
 }
 
+func TestResolveIdentityMapsDemoBuyer2ToBuyerTwoFixture(t *testing.T) {
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
+	req := httptest.NewRequest("GET", "/account/me", nil)
+	req.Header.Set(forwardedTokenHeader, fakeToken(t, "demo-buyer2", []string{"buyers"}))
+
+	id, err := srv.resolveIdentity(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id.Username != "demo-buyer2" || id.Role != "buyers" || id.FixtureID != "buyer-2" {
+		t.Fatalf("unexpected identity: %+v", id)
+	}
+}
+
 func TestResolveIdentityPicksHighestPriorityRoleWhenMultipleGroupsPresent(t *testing.T) {
 	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
 	req := httptest.NewRequest("GET", "/account/me", nil)
