@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -56,13 +57,27 @@ var ErrNotAuthenticated = errors.New("not authenticated: please log in")
 // kagent-controller client library: kagent's own AgentInstance gRPC API (the
 // recipe the sibling fraud-ops-console demo used) no longer exists at the
 // Agent/Harness/AgentTemplate CRD generation this cluster runs.
+// AgentInvokerHTTP tracks, per console chat session, the contextId
+// kagent-controller itself assigns -- confirmed live (2026-11-02) that
+// SendMessage does NOT accept a client-invented contextId as a new session:
+// a well-formed but unrecognized one fails with JSON-RPC error -32001 "task
+// not found" (kagent tries to resume an existing context, not create one).
+// Only omitting contextId entirely makes the server create a fresh one,
+// which it returns in the response for the client to reuse on later turns.
 type AgentInvokerHTTP struct {
 	BaseURL string
 	Client  *http.Client
+
+	mu       sync.Mutex
+	contexts map[string]string // console sessionID -> kagent-assigned contextId
 }
 
-func newAgentInvokerHTTP(baseURL string) AgentInvokerHTTP {
-	return AgentInvokerHTTP{BaseURL: baseURL, Client: &http.Client{Timeout: 30 * time.Second}}
+func newAgentInvokerHTTP(baseURL string) *AgentInvokerHTTP {
+	return &AgentInvokerHTTP{
+		BaseURL:  baseURL,
+		Client:   &http.Client{Timeout: 30 * time.Second},
+		contexts: make(map[string]string),
+	}
 }
 
 type a2aPart struct {
@@ -75,9 +90,10 @@ type a2aMessage struct {
 	Role      string    `json:"role"`
 	Parts     []a2aPart `json:"parts"`
 	MessageID string    `json:"messageId,omitempty"`
-	// ContextID carries the console's own sessionID, so repeated calls with
-	// the same session continue one A2A conversation instead of each
-	// starting a new one.
+	// ContextID is kagent-controller's own session identifier, learned from
+	// a prior response (see AgentInvokerHTTP.contexts) -- never client-
+	// invented. Omitted on a session's first message so the server creates
+	// a new context instead of trying (and failing) to resume one.
 	ContextID string `json:"contextId,omitempty"`
 }
 
@@ -97,19 +113,28 @@ type jsonRPCError struct {
 	Message string `json:"message"`
 }
 
-type a2aTaskStatus struct {
-	State   string      `json:"state"`
-	Message *a2aMessage `json:"message"`
+type a2aArtifact struct {
+	ArtifactID string    `json:"artifactId"`
+	Parts      []a2aPart `json:"parts"`
 }
 
-// a2aResult decodes either shape SendMessage's result can take: a direct
-// Message (the agent's whole reply, usual case for a short chat turn) or a
-// Task (a longer-running unit of work, whose final reply lives at
-// status.message). Kind discriminates which one this is.
+type a2aTaskStatus struct {
+	State string `json:"state"`
+}
+
+// a2aTask is kagent-controller's actual SendMessage result shape (confirmed
+// live, 2026-11-02): the reply text lives in the LAST artifact, not on a
+// status.message field -- there is no separate flat "message" result kind
+// observed from this agent, so that's the only shape handled here.
+type a2aTask struct {
+	ID        string        `json:"id"`
+	ContextID string        `json:"contextId"`
+	Artifacts []a2aArtifact `json:"artifacts"`
+	Status    a2aTaskStatus `json:"status"`
+}
+
 type a2aResult struct {
-	Kind   string         `json:"kind"`
-	Parts  []a2aPart      `json:"parts"`
-	Status *a2aTaskStatus `json:"status"`
+	Task *a2aTask `json:"task"`
 }
 
 type jsonRPCResponse struct {
@@ -128,10 +153,14 @@ func replyText(parts []a2aPart) (string, error) {
 	return "", errors.New("agent reply had no text part")
 }
 
-func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, message, token string) (string, error) {
+func (a *AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, message, token string) (string, error) {
 	if token == "" {
 		return "", ErrNotAuthenticated
 	}
+
+	a.mu.Lock()
+	kagentContextID := a.contexts[sessionID]
+	a.mu.Unlock()
 
 	reqBody := jsonRPCRequest{
 		JSONRPC: "2.0",
@@ -142,7 +171,7 @@ func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, messag
 				Role:      "ROLE_USER",
 				Parts:     []a2aPart{{Kind: "text", Text: message}},
 				MessageID: fmt.Sprintf("msg-%d", time.Now().UnixNano()),
-				ContextID: sessionID,
+				ContextID: kagentContextID,
 			},
 		},
 	}
@@ -189,22 +218,16 @@ func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, messag
 	if err := json.Unmarshal(rpcResp.Result, &result); err != nil {
 		return "", fmt.Errorf("decode agent %q result: %w", agentName, err)
 	}
-	switch result.Kind {
-	case "message":
-		return replyText(result.Parts)
-	case "task":
-		if result.Status == nil || result.Status.Message == nil {
-			return "", fmt.Errorf("agent %q task has no final message (state=%v)", agentName, resultState(result))
-		}
-		return replyText(result.Status.Message.Parts)
-	default:
-		return "", fmt.Errorf("agent %q returned unrecognized result kind %q", agentName, result.Kind)
+	if result.Task == nil {
+		return "", fmt.Errorf("agent %q returned a result with no task", agentName)
 	}
-}
-
-func resultState(r a2aResult) string {
-	if r.Status == nil {
-		return ""
+	if len(result.Task.Artifacts) == 0 {
+		return "", fmt.Errorf("agent %q task has no artifacts (state=%v)", agentName, result.Task.Status.State)
 	}
-	return r.Status.State
+	if result.Task.ContextID != "" {
+		a.mu.Lock()
+		a.contexts[sessionID] = result.Task.ContextID
+		a.mu.Unlock()
+	}
+	return replyText(result.Task.Artifacts[len(result.Task.Artifacts)-1].Parts)
 }

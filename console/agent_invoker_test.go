@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,7 +26,21 @@ func TestAgentInvokerHTTPReturnsNotAuthenticatedWithNoToken(t *testing.T) {
 	}
 }
 
-func TestAgentInvokerHTTPSendsCorrectRequestAndParsesMessageResult(t *testing.T) {
+// taskResultJSON builds a kagent-controller-shaped SendMessage result
+// (confirmed live, 2026-11-02): the reply lives in the last artifact's
+// parts, and contextId sits on the task itself, not nested under status.
+func taskResultJSON(contextID, replyText string) json.RawMessage {
+	return json.RawMessage(fmt.Sprintf(`{
+		"task": {
+			"id": "task-1",
+			"contextId": %q,
+			"artifacts": [{"artifactId": "artifact-1", "parts": [{"kind": "text", "text": %q}]}],
+			"status": {"state": "TASK_STATE_COMPLETED"}
+		}
+	}`, contextID, replyText))
+}
+
+func TestAgentInvokerHTTPSendsCorrectRequestAndParsesTaskResult(t *testing.T) {
 	var gotPath, gotAuth, gotMethod string
 	var gotBody jsonRPCRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,11 +53,7 @@ func TestAgentInvokerHTTPSendsCorrectRequestAndParsesMessageResult(t *testing.T)
 		resp := jsonRPCResponse{
 			JSONRPC: "2.0",
 			ID:      gotBody.ID,
-			Result: json.RawMessage(`{
-				"kind": "message",
-				"role": "agent",
-				"parts": [{"kind": "text", "text": "Here are three listings you might like."}]
-			}`),
+			Result:  taskResultJSON("kagent-context-1", "Here are three listings you might like."),
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -71,44 +82,59 @@ func TestAgentInvokerHTTPSendsCorrectRequestAndParsesMessageResult(t *testing.T)
 	if gotBody.Params.Message.Role != "ROLE_USER" {
 		t.Fatalf("expected role ROLE_USER, got %q", gotBody.Params.Message.Role)
 	}
-	if gotBody.Params.Message.ContextID != "session-1" {
-		t.Fatalf("expected contextId session-1, got %q", gotBody.Params.Message.ContextID)
+	if gotBody.Params.Message.ContextID != "" {
+		t.Fatalf("expected no contextId on a session's first message, got %q", gotBody.Params.Message.ContextID)
 	}
 	if len(gotBody.Params.Message.Parts) != 1 || gotBody.Params.Message.Parts[0].Text != "what's on sale?" {
 		t.Fatalf("unexpected message parts: %+v", gotBody.Params.Message.Parts)
 	}
 }
 
-func TestAgentInvokerHTTPParsesTaskResult(t *testing.T) {
+func TestAgentInvokerHTTPReusesServerAssignedContextIDOnSecondCall(t *testing.T) {
+	var contextIDsSent []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req jsonRPCRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		contextIDsSent = append(contextIDsSent, req.Params.Message.ContextID)
 		resp := jsonRPCResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Result: json.RawMessage(`{
-				"kind": "task",
-				"status": {
-					"state": "completed",
-					"message": {
-						"kind": "message",
-						"role": "agent",
-						"parts": [{"kind": "text", "text": "Your bid was placed."}]
-					}
-				}
-			}`),
+			Result:  taskResultJSON("kagent-context-1", "reply"),
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	t.Cleanup(srv.Close)
 
 	inv := newAgentInvokerHTTP(srv.URL)
-	reply, err := inv.Send(context.Background(), "shopping-assistant", "session-1", "bid $50", "test-token")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if _, err := inv.Send(context.Background(), "shopping-assistant", "session-1", "first", "test-token"); err != nil {
+		t.Fatalf("first call: unexpected error: %v", err)
 	}
-	if reply != "Your bid was placed." {
-		t.Fatalf("unexpected reply: %q", reply)
+	if _, err := inv.Send(context.Background(), "shopping-assistant", "session-1", "second", "test-token"); err != nil {
+		t.Fatalf("second call: unexpected error: %v", err)
+	}
+
+	if len(contextIDsSent) != 2 || contextIDsSent[0] != "" || contextIDsSent[1] != "kagent-context-1" {
+		t.Fatalf("expected contextIds [\"\", \"kagent-context-1\"], got %v", contextIDsSent)
+	}
+}
+
+func TestAgentInvokerHTTPReturnsErrorOnTaskWithNoArtifacts(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req jsonRPCRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		resp := jsonRPCResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Result:  json.RawMessage(`{"task": {"id": "task-1", "contextId": "c1", "artifacts": [], "status": {"state": "TASK_STATE_WORKING"}}}`),
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	t.Cleanup(srv.Close)
+
+	inv := newAgentInvokerHTTP(srv.URL)
+	_, err := inv.Send(context.Background(), "shopping-assistant", "session-1", "hi", "test-token")
+	if err == nil {
+		t.Fatal("expected an error, got nil")
 	}
 }
 
