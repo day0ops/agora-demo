@@ -35,13 +35,18 @@ function renderShop(identityResponse: unknown) {
 }
 
 class MockEventSource {
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  static instances: MockEventSource[] = [];
   close() {}
-  constructor(public url: string) {}
+  constructor(public url: string) {
+    MockEventSource.instances.push(this);
+  }
 }
 
 describe("Shop", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    MockEventSource.instances = [];
     // @ts-expect-error -- test double
     global.EventSource = MockEventSource;
     // jsdom has no matchMedia; ChatPanel (rendered by Shop) reads it on mount
@@ -160,6 +165,50 @@ describe("Shop", () => {
     await waitFor(() =>
       expect(api.placeBid).toHaveBeenCalledWith("listing-1", 530000),
     );
+  });
+
+  it("refreshes the open listing's bid history when a bid.placed event arrives for it", async () => {
+    vi.spyOn(api, "listListings").mockResolvedValue([activeAuction]);
+    const bidHistorySpy = vi
+      .spyOn(api, "bidHistory")
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "bid-1",
+          listingId: "listing-1",
+          buyerId: "buyer-1",
+          amountCents: 530000,
+          isAutoBid: false,
+          placedAt: new Date().toISOString(),
+        },
+      ]);
+    const updatedListing: Listing = {
+      ...activeAuction,
+      currentBidCents: 530000,
+    };
+    vi.spyOn(api, "getListing").mockResolvedValue(updatedListing);
+    const user = userEvent.setup();
+
+    renderShop({
+      username: "demo-buyer",
+      groups: ["buyers"],
+      role: "buyers",
+      fixtureId: "buyer-1",
+    });
+    await user.click(await screen.findByText("1965 Rolex Submariner"));
+    expect(screen.getByText("No bids yet")).toBeInTheDocument();
+
+    const es = MockEventSource.instances[0];
+    es.onmessage?.({
+      data: JSON.stringify({
+        type: "bid.placed",
+        data: { listingId: "listing-1", bid: { buyerId: "buyer-1" } },
+      }),
+    } as MessageEvent);
+
+    await waitFor(() => expect(bidHistorySpy).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("No bids yet")).not.toBeInTheDocument();
+    expect(screen.getByText("buyer-1")).toBeInTheDocument();
   });
 
   it("shows a login prompt in the orders panel when logged out", async () => {
