@@ -65,7 +65,12 @@ function DetailPanel({
     } else {
       setBids([]);
     }
-  }, [listing?.id, listing?.type]);
+    // currentBidCents is included so a bid.placed/bid.withdrawn SSE event for
+    // this same listing (which updates the listing object but never changes
+    // its id) re-fetches the bid list too - without it, a successful bid's
+    // own history entry never appeared until the listing was deselected and
+    // reselected.
+  }, [listing?.id, listing?.type, listing?.currentBidCents]);
 
   if (!listing) {
     return (
