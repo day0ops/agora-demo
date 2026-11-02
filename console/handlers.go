@@ -134,7 +134,17 @@ func (s *consoleServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, chatResponse{Error: ErrNotAuthenticated.Error()})
 		return
 	}
-	reply, err := s.invoker.Send(r.Context(), req.Agent, req.SessionID, req.Message, token)
+	// The agent otherwise has no way to know who it's talking to - nothing
+	// in the A2A SendMessage payload carries identity, and any buyer/seller
+	// id a tool call needs is a free-form LLM-supplied argument with no
+	// server-side cross-check. Prepending the resolved identity here is the
+	// one place that id can be trusted; every agent's system prompt must
+	// treat it as the only valid id for its own tool calls.
+	message := req.Message
+	if id, err := s.resolveIdentity(r); err == nil && id.FixtureID != "" {
+		message = fmt.Sprintf("[authenticated_user_id: %s, role: %s] %s", id.FixtureID, id.Role, req.Message)
+	}
+	reply, err := s.invoker.Send(r.Context(), req.Agent, req.SessionID, message, token)
 	if err != nil {
 		writeJSON(w, http.StatusOK, chatResponse{Error: err.Error()})
 		return
