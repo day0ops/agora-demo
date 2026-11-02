@@ -61,11 +61,22 @@ describe("useExecutionDrawer", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("closes on Escape", () => {
+  it("closes on Escape", async () => {
+    vi.spyOn(adapter, "getAgentJourney").mockResolvedValue({
+      status: "empty",
+      reason: "No correlation id recorded for this activity.",
+    });
     let openFn: (opts: OpenExecutionDrawerOptions) => void = () => {};
     render(<TestHost onOpenReady={(fn) => (openFn = fn)} />);
     act(() =>
       openFn({ summary: { title: "t", body: "b", trustCheck: "unavailable" } }),
+    );
+    // Flush the mocked getAgentJourney promise inside act() before closing,
+    // otherwise its setJourney call lands after the test ends unwrapped.
+    await waitFor(() =>
+      expect(
+        screen.getAllByText("No correlation id recorded for this activity."),
+      ).toHaveLength(2),
     );
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
