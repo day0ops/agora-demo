@@ -1,7 +1,7 @@
 // Command console serves the marketplace console: a REST API backed by
-// catalog-api plus the embedded Vite SPA with buyer (/shop.html), seller
-// (/sell.html), and operator (/ops.html) views. It holds no marketplace data
-// of its own.
+// catalog-api plus the embedded React SPA (buyer/seller/operator views all
+// served from one index.html, routed client-side). It holds no marketplace
+// data of its own.
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -27,6 +28,26 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+// spaHandler serves a real static file when one exists at the requested
+// path (JS bundles, CSS, images, favicon), otherwise serves index.html so
+// client-side routing resolves a direct link or page refresh on any SPA
+// route (e.g. /shop, /sell, /ops).
+func spaHandler(dist fs.FS) http.Handler {
+	fileServer := http.FileServer(http.FS(dist))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path != "" {
+			if _, err := fs.Stat(dist, path); err == nil {
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+		}
+		r2 := r.Clone(r.Context())
+		r2.URL.Path = "/"
+		fileServer.ServeHTTP(w, r2)
+	})
+}
+
 func main() {
 	catalogAPIURL := envOr("CATALOG_API_URL", "http://catalog-api:8080")
 
@@ -42,7 +63,7 @@ func main() {
 		log.Fatalf("console: load embedded web/dist: %v", err)
 	}
 	mux := srv.routes()
-	mux.Handle("/", http.FileServer(http.FS(dist)))
+	mux.Handle("/", spaHandler(dist))
 
 	addr := ":" + envOr("PORT", "8090")
 	log.Printf("console listening on %s, catalog-api at %s", addr, catalogAPIURL)
