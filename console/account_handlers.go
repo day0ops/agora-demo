@@ -15,6 +15,12 @@ import (
 func (s *consoleServer) accountRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /account/me", s.handleAccountMe)
 	mux.HandleFunc("GET /account/login", s.handleAccountLogin)
+	// handleChat needs the same forwarded token every other handler here
+	// relies on, so it must live under /account too -- oidc-gateway's ext-auth
+	// gate is scoped to this prefix (see agora-demo-local.yaml's oidc-gateway
+	// sectionName: gated), and a request anywhere outside it never carries
+	// X-Agora-User-Token regardless of whether the visitor is actually logged in.
+	mux.HandleFunc("POST /account/chat", s.handleChat)
 	mux.HandleFunc("POST /account/listings", s.handleCreateListing)
 	mux.HandleFunc("POST /account/listings/{id}/bids", s.handlePlaceBid)
 	mux.HandleFunc("DELETE /account/listings/{id}/bids/{bidID}", s.handleWithdrawBid)

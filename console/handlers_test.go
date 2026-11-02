@@ -114,7 +114,7 @@ func TestHandleChatReturnsReplyOnSuccess(t *testing.T) {
 	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), inv)
 
 	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
-	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/account/chat", bytes.NewReader(body))
 	req.Header.Set("X-Agora-User-Token", "user-token-123")
 	rec := httptest.NewRecorder()
 	srv.routes().ServeHTTP(rec, req)
@@ -137,7 +137,7 @@ func TestHandleChatReturnsNotAuthenticatedErrorWithNoTokenHeader(t *testing.T) {
 
 	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
 	rec := httptest.NewRecorder()
-	srv.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body)))
+	srv.routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/account/chat", bytes.NewReader(body)))
 
 	var resp chatResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
@@ -158,7 +158,7 @@ func TestHandleChatReturns200WithErrorWhenInvokerFails(t *testing.T) {
 	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), AgentInvokerStub{})
 
 	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
-	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/account/chat", bytes.NewReader(body))
 	req.Header.Set("X-Agora-User-Token", "user-token-123")
 	rec := httptest.NewRecorder()
 	srv.routes().ServeHTTP(rec, req)

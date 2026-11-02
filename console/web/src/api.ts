@@ -117,7 +117,7 @@ export function sendChat(
   sessionId: string,
   message: string,
 ): Promise<ChatResponse> {
-  return request("POST", "/api/chat", { agent, sessionId, message });
+  return request("POST", "/account/chat", { agent, sessionId, message });
 }
 
 export interface Stats {

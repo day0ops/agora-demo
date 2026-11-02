@@ -26,7 +26,6 @@ func (s *consoleServer) routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/listings", s.handleListListings)
 	mux.HandleFunc("GET /api/listings/{id}", s.handleGetListing)
 	mux.HandleFunc("GET /api/listings/{id}/bids", s.handleBidHistory)
-	mux.HandleFunc("POST /api/chat", s.handleChat)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.HandleFunc("GET /api/version", s.handleVersion)
 	s.accountRoutes(mux)
