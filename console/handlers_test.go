@@ -96,13 +96,15 @@ func TestHandleGetListingReports502WhenCatalogUnreachable(t *testing.T) {
 }
 
 type fakeInvoker struct {
-	reply    string
-	err      error
-	gotToken string
+	reply      string
+	err        error
+	gotToken   string
+	gotMessage string
 }
 
-func (f *fakeInvoker) Send(_ context.Context, _, _, _, token string) (string, error) {
+func (f *fakeInvoker) Send(_ context.Context, _, _, message, token string) (string, error) {
 	f.gotToken = token
+	f.gotMessage = message
 	if f.err != nil {
 		return "", f.err
 	}
@@ -151,6 +153,38 @@ func TestHandleChatReturnsNotAuthenticatedErrorWithNoTokenHeader(t *testing.T) {
 	}
 	if inv.gotToken != "" {
 		t.Fatal("expected the invoker never to be called with no token")
+	}
+}
+
+func TestHandleChatPrependsTheAuthenticatedIdentityToTheMessage(t *testing.T) {
+	inv := &fakeInvoker{reply: "ok"}
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), inv)
+
+	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "any cameras under $300?"})
+	req := httptest.NewRequest(http.MethodPost, "/account/chat", bytes.NewReader(body))
+	req.Header.Set(forwardedTokenHeader, fakeToken(t, "demo-buyer", []string{"buyers"}))
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
+
+	want := "[authenticated_user_id: buyer-1, role: buyers] any cameras under $300?"
+	if inv.gotMessage != want {
+		t.Fatalf("expected message %q, got %q", want, inv.gotMessage)
+	}
+}
+
+func TestHandleChatSendsTheRawMessageWhenIdentityCannotBeResolved(t *testing.T) {
+	inv := &fakeInvoker{reply: "ok"}
+	srv := newConsoleServer(newCatalogClient("http://unused"), newEventHub(), inv)
+
+	body, _ := json.Marshal(chatRequest{Agent: "shopping-assistant", SessionID: "s1", Message: "hi"})
+	req := httptest.NewRequest(http.MethodPost, "/account/chat", bytes.NewReader(body))
+	// demo-operator has no fixture mapping (operators are not also buyers/sellers).
+	req.Header.Set(forwardedTokenHeader, fakeToken(t, "demo-operator", []string{"operators"}))
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
+
+	if inv.gotMessage != "hi" {
+		t.Fatalf("expected the raw message with no identity to prepend, got %q", inv.gotMessage)
 	}
 }
 
