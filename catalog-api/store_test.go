@@ -44,6 +44,64 @@ func TestListListingsFiltersByStatusAndSeller(t *testing.T) {
 	}
 }
 
+func TestListListingsFiltersByCategoryPriceRangeAndKeyword(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		{ID: "cam1", Category: "cameras", Title: "Vintage Nikon F3", Description: "classic film camera", Type: fixtures.ListingTypeBuyNow, PriceCents: 45000},
+		{ID: "cam2", Category: "cameras", Title: "Polaroid SX-70", Description: "instant camera", Type: fixtures.ListingTypeBuyNow, PriceCents: 22000},
+		{ID: "auc1", Category: "watches", Title: "Rolex Submariner", Description: "dive watch", Type: fixtures.ListingTypeAuction, PriceCents: 500000, CurrentBidCents: 520000, AuctionEndsAt: &end},
+		{ID: "book1", Category: "books", Title: "Dune", Description: "sci-fi novel", Type: fixtures.ListingTypeBuyNow, PriceCents: 15000},
+	}, nil, nil)
+
+	byCategory := s.ListListings(ListingFilter{Category: "cameras"})
+	if len(byCategory) != 2 {
+		t.Fatalf("expected 2 cameras, got %d: %+v", len(byCategory), byCategory)
+	}
+
+	underFiveHundred := s.ListListings(ListingFilter{MaxPriceCents: 50000})
+	if len(underFiveHundred) != 3 {
+		t.Fatalf("expected 3 listings under $500, got %d: %+v", len(underFiveHundred), underFiveHundred)
+	}
+	for _, l := range underFiveHundred {
+		if l.ID == "auc1" {
+			t.Fatalf("expected the $5200 auction to be excluded by MaxPriceCents, got it in results")
+		}
+	}
+
+	overTwoHundred := s.ListListings(ListingFilter{MinPriceCents: 20000})
+	if len(overTwoHundred) != 3 {
+		t.Fatalf("expected 3 listings over $200, got %d: %+v", len(overTwoHundred), overTwoHundred)
+	}
+
+	byKeyword := s.ListListings(ListingFilter{Keyword: "camera"})
+	if len(byKeyword) != 2 {
+		t.Fatalf("expected 2 listings matching keyword 'camera', got %d: %+v", len(byKeyword), byKeyword)
+	}
+
+	combined := s.ListListings(ListingFilter{Category: "cameras", MaxPriceCents: 30000})
+	if len(combined) != 1 || combined[0].ID != "cam2" {
+		t.Fatalf("expected only cam2 for cameras under $300, got %+v", combined)
+	}
+}
+
+func TestListListingsUsesCurrentBidAsEffectivePriceForActiveAuctions(t *testing.T) {
+	end := time.Now().Add(time.Hour)
+	s := newStoreWithIDFunc([]fixtures.Listing{
+		// Starting price is cheap, but a real bid has pushed it past the filter.
+		{ID: "auc1", Category: "watches", Title: "Watch", Type: fixtures.ListingTypeAuction, PriceCents: 10000, CurrentBidCents: 90000, AuctionEndsAt: &end},
+	}, nil, nil)
+
+	underOneHundred := s.ListListings(ListingFilter{MaxPriceCents: 100000})
+	if len(underOneHundred) != 1 {
+		t.Fatalf("expected the auction to match MaxPriceCents against its current bid, got %+v", underOneHundred)
+	}
+
+	underFifty := s.ListListings(ListingFilter{MaxPriceCents: 50000})
+	if len(underFifty) != 0 {
+		t.Fatalf("expected the auction to be excluded once its current bid exceeds MaxPriceCents, got %+v", underFifty)
+	}
+}
+
 func TestListListingsOrderedByCreatedAtThenID(t *testing.T) {
 	now := time.Now()
 	s := newStoreWithIDFunc([]fixtures.Listing{

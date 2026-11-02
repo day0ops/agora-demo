@@ -5,6 +5,7 @@ use (
 	./console
 	./fixtures
 	./mcp-servers/bids-mcp
+	./mcp-servers/catalog-mcp
 	./mcp-servers/orders-mcp
 	./mcp-servers/pricing-mcp
 	./mcp-servers/trust-mcp
