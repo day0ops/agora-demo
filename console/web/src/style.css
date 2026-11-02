@@ -12,16 +12,14 @@
   --border: #26251e;
   --text: #ffffff;
   --muted: #938f82;
-  /* A soft violet/lavender, picked to stay clear of --info (blue) and --ok
-     (green) so the primary accent reads as its own distinct color rather
-     than colliding with a status hue. Bright enough that white text on it
-     fails contrast outright, so --accent-ink flips to a dark ink here
-     instead (8.5:1, see below). --fill-ink stays white for the other
-     solid-fill colors (danger/secondary/sold-stamp), which are
+  /* A light, warm gold rather than the original orange - bright enough that
+     white text on it fails contrast outright, so --accent-ink flips to a
+     dark ink here instead (11.6:1, see below). --fill-ink stays white for
+     the other solid-fill colors (danger/secondary/sold-stamp), which are
      dark/saturated enough in both themes not to need the same flip. */
-  --accent: #b4a7ff;
-  --accent-strong: #c9c0ff;
-  --accent-ink: #1b1030;
+  --accent: #f2c744;
+  --accent-strong: #ffd966;
+  --accent-ink: #14120b;
   --fill-ink: #ffffff;
   --accent-2: #1f8a65;
   --ok: #1f8a65;
@@ -39,7 +37,7 @@
 }
 
 /* WCAG AA contrast, computed from sRGB relative luminance:
-   dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 8.52:1
+   dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 11.64:1
    light - text/bg 17.41:1, text/surface 18.69:1, accent-ink/accent 6.23:1
    muted clears 4.5:1 against both bg and surface in both themes.
    All pairs meet the 4.5:1 body-text floor.
