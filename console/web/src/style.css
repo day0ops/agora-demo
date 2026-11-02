@@ -12,14 +12,16 @@
   --border: #26251e;
   --text: #ffffff;
   --muted: #938f82;
-  /* A light, warm gold rather than the original orange - bright enough that
-     white text on it fails contrast outright, so --accent-ink flips to a
-     dark ink here instead (11.6:1, see below). --fill-ink stays white for
-     the other solid-fill colors (danger/secondary/sold-stamp), which are
+  /* A soft violet/lavender, picked to stay clear of --info (blue) and --ok
+     (green) so the primary accent reads as its own distinct color rather
+     than colliding with a status hue. Bright enough that white text on it
+     fails contrast outright, so --accent-ink flips to a dark ink here
+     instead (8.5:1, see below). --fill-ink stays white for the other
+     solid-fill colors (danger/secondary/sold-stamp), which are
      dark/saturated enough in both themes not to need the same flip. */
-  --accent: #f2c744;
-  --accent-strong: #ffd966;
-  --accent-ink: #14120b;
+  --accent: #b4a7ff;
+  --accent-strong: #c9c0ff;
+  --accent-ink: #1b1030;
   --fill-ink: #ffffff;
   --accent-2: #1f8a65;
   --ok: #1f8a65;
@@ -37,8 +39,8 @@
 }
 
 /* WCAG AA contrast, computed from sRGB relative luminance:
-   dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 11.64:1
-   light - text/bg 17.41:1, text/surface 18.69:1, accent-ink/accent 5.19:1
+   dark  - text/bg 18.74:1, text/surface 17.22:1, accent-ink/accent 8.52:1
+   light - text/bg 17.41:1, text/surface 18.69:1, accent-ink/accent 6.23:1
    muted clears 4.5:1 against both bg and surface in both themes.
    All pairs meet the 4.5:1 body-text floor.
 
@@ -54,11 +56,10 @@ html[data-theme="light"] {
   --border: #e0ded6;
   --text: #141210;
   --muted: #6b6760;
-  /* A deep amber/bronze rather than the dark theme's light gold - a bright
-     yellow reads as washed-out on an already-light background, and this
-     stays dark enough to pair with white text at 5.19:1. */
-  --accent: #96620a;
-  --accent-strong: #754b08;
+  /* A richer, darker indigo than the dark theme's lavender - needed to stay
+     dark enough to pair with white text at 6.23:1 on a light background. */
+  --accent: #5b3df0;
+  --accent-strong: #4529d6;
   --accent-ink: #ffffff;
   --fill-ink: #ffffff;
   --accent-2: #1a7f37;
@@ -86,7 +87,7 @@ body {
   flex-direction: column;
   min-height: 100vh;
 }
-#app {
+#root {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -100,7 +101,7 @@ body {
    from ever shrinking below its own content's height, so on a tall page
    (e.g. Sell's long form) the footer still renders after all of it instead
    of at the height flex-grow would otherwise allocate. */
-#app > main {
+#root > main {
   flex: 1;
 }
 
@@ -161,7 +162,12 @@ a {
   position: absolute;
   top: 0;
   right: 0;
-  bottom: 0;
+  /* Sized to content (no bottom:0) rather than stretched to the full
+     viewport - most of this drawer's content is a short summary, and
+     forcing full height left a large empty void below it. max-height keeps
+     a long agent journey scrolling internally instead of overflowing the
+     viewport. */
+  max-height: 100vh;
   width: min(440px, 100vw);
   background: var(--surface);
   border-left: 1px solid var(--border);
@@ -171,11 +177,15 @@ a {
   gap: 16px;
   overflow-y: auto;
 }
-.execution-drawer-head {
+.execution-drawer-head,
+.panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex: none;
+}
+.panel-head h2 {
+  margin: 0;
 }
 .execution-drawer-head h2 {
   font-size: 15px;
@@ -768,6 +778,22 @@ textarea {
   padding: 8px 10px;
   font: inherit;
   font-size: 14px;
+}
+/* Native select arrows render flush against the box's own border with no
+   room to breathe - appearance:none drops that rendering entirely so a
+   custom chevron (inline SVG, recolored per theme below since a data-URI
+   can't read --muted) gets real padding instead. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23938f82' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+html[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b6760' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 textarea {
   resize: vertical;
