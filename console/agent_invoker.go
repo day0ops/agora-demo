@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -171,6 +172,7 @@ func (a AgentInvokerHTTP) Send(ctx context.Context, agentName, sessionID, messag
 
 	var rpcResp jsonRPCResponse
 	if err := json.Unmarshal(respBytes, &rpcResp); err != nil {
+		log.Printf("agent %q returned undecodable 200 body (first 500 bytes): %.500s", agentName, respBytes)
 		return "", fmt.Errorf("decode agent %q response: %w", agentName, err)
 	}
 	if rpcResp.Error != nil {
