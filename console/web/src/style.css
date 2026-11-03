@@ -209,19 +209,31 @@ a {
   gap: 4px;
 }
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 14px 22px;
+  padding: 15px 24px;
   border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(10px);
   flex: none;
+}
+.topbar-left {
+  display: flex;
+  align-items: baseline;
+  gap: 26px;
+  margin-right: auto;
+  min-width: 0;
 }
 .topbar .brand {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 16.5px;
+  font-size: 17px;
   letter-spacing: -0.1px;
 }
 .topbar .brand svg {
@@ -230,15 +242,18 @@ a {
 }
 .topbar nav {
   display: flex;
-  gap: 18px;
-  margin-right: auto;
+  align-items: baseline;
+  gap: 20px;
+  padding-left: 26px;
+  border-left: 1px solid var(--border);
 }
 .topbar nav a {
-  padding: 4px 0;
+  padding-bottom: 5px;
   font-size: 14px;
   font-weight: 500;
   color: var(--muted);
   border-bottom: 2px solid transparent;
+  transition: color 0.15s ease;
 }
 .topbar nav a:hover {
   color: var(--text);
