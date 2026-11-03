@@ -44,23 +44,25 @@ export function Navbar({ active }: { active: View }) {
 
   return (
     <div className="topbar">
-      <Link className="brand" to="/">
-        <IconBrand />
-        {APP_NAME}
-      </Link>
-      <nav>
-        {NAV.map((n) => (
-          <Link
-            key={n.key}
-            to={n.to}
-            data-key={n.key}
-            className={n.key === active ? "active" : ""}
-            style={{ display: navVisible(n.key) ? "" : "none" }}
-          >
-            {n.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="topbar-left">
+        <Link className="brand" to="/">
+          <IconBrand />
+          {APP_NAME}
+        </Link>
+        <nav>
+          {NAV.map((n) => (
+            <Link
+              key={n.key}
+              to={n.to}
+              data-key={n.key}
+              className={n.key === active ? "active" : ""}
+              style={{ display: navVisible(n.key) ? "" : "none" }}
+            >
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
       <div className="account-area">
         {identity ? (
           <div className="account-menu" ref={menuRef}>
