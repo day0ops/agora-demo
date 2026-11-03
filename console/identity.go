@@ -32,6 +32,7 @@ type demoAccount struct {
 // own -- operators are a pure oversight role, not also a seller or buyer.
 var demoAccountsByUsername = map[string]demoAccount{
 	"demo-buyer":  {FixtureID: "buyer-1"},
+	"demo-buyer2": {FixtureID: "buyer-2"},
 	"demo-seller": {FixtureID: "seller-1", SellerTier: "pro"},
 }
 
