@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { Landing } from "./Landing";
@@ -74,5 +74,20 @@ describe("Landing", () => {
     vi.spyOn(api, "listListings").mockRejectedValue(new Error("network error"));
     renderLanding();
     expect(await screen.findAllByText("Catalog unavailable")).toHaveLength(3);
+  });
+
+  it("links to /shop as real hard links, not client-side routes", async () => {
+    vi.spyOn(api, "listListings").mockResolvedValue([sampleListing]);
+    renderLanding();
+    await screen.findAllByText("Rolex Submariner");
+
+    // /shop is gated server-side - a react-router <Link> would intercept the
+    // click and never hit the server, so both must stay plain <a href>.
+    vi.useFakeTimers();
+    expect(fireEvent.click(screen.getByText("Explore marketplace"))).toBe(true);
+    expect(fireEvent.click(screen.getAllByText("Rolex Submariner")[0])).toBe(
+      true,
+    );
+    vi.useRealTimers();
   });
 });

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { ListingImage } from "../components/ListingImage";
@@ -23,15 +22,17 @@ function priceFor(l: Listing): number {
 }
 
 function RailCard({ listing }: { listing: Listing }) {
+  // /shop is gated server-side - a client-side <Link> would never hit the
+  // server, so this has to be a real <a href> (see Navbar's Shop link).
   return (
-    <Link className="rail-card" to="/shop">
+    <a className="rail-card" href="/shop">
       <ListingImage listing={listing} />
       <div className="rail-card-title">{listing.title}</div>
       <div className="rail-card-foot">
         <span className="price">{formatCents(priceFor(listing))}</span>
         <StatusPill status={listing.status} />
       </div>
-    </Link>
+    </a>
   );
 }
 
@@ -97,9 +98,9 @@ export function Landing() {
             together on your behalf.
           </p>
           <div className="hero-ctas">
-            <Link className="primary" to="/shop">
+            <a className="primary" href="/shop">
               Explore marketplace
-            </Link>
+            </a>
             {!identity && (
               <a className="secondary" href="/account/login">
                 Login
