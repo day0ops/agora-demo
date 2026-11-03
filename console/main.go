@@ -42,10 +42,6 @@ func spaHandler(dist fs.FS) http.Handler {
 				return
 			}
 		}
-		// no-store keeps the shell out of the back-forward cache -- otherwise a
-		// client-side auth redirect (e.g. Shop's) can be undone by pressing back,
-		// restoring the already-rendered gated page instead of re-running it.
-		w.Header().Set("Cache-Control", "no-store")
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = "/"
 		fileServer.ServeHTTP(w, r2)

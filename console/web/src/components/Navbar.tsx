@@ -50,17 +50,30 @@ export function Navbar({ active }: { active: View }) {
           {APP_NAME}
         </Link>
         <nav>
-          {NAV.map((n) => (
-            <Link
-              key={n.key}
-              to={n.to}
-              data-key={n.key}
-              className={n.key === active ? "active" : ""}
-              style={{ display: navVisible(n.key) ? "" : "none" }}
-            >
-              {n.label}
-            </Link>
-          ))}
+          {NAV.map((n) =>
+            // Shop is gated at the gateway (real OIDC redirect) - a client-side
+            // <Link> would never hit the server, so it has to be a hard link.
+            n.key === "shop" ? (
+              <a
+                key={n.key}
+                href={n.to}
+                data-key={n.key}
+                className={n.key === active ? "active" : ""}
+              >
+                {n.label}
+              </a>
+            ) : (
+              <Link
+                key={n.key}
+                to={n.to}
+                data-key={n.key}
+                className={n.key === active ? "active" : ""}
+                style={{ display: navVisible(n.key) ? "" : "none" }}
+              >
+                {n.label}
+              </Link>
+            ),
+          )}
         </nav>
       </div>
       <div className="account-area">

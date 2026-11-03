@@ -42,23 +42,3 @@ func TestSpaHandlerFallsBackToIndexForUnknownPaths(t *testing.T) {
 		}
 	}
 }
-
-func TestSpaHandlerSendsNoStoreForTheShell(t *testing.T) {
-	dist := fstest.MapFS{
-		"index.html":    {Data: []byte("<html>spa shell</html>")},
-		"assets/app.js": {Data: []byte("console.log('app')")},
-	}
-	handler := spaHandler(dist)
-
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/shop", nil))
-	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-		t.Fatalf("shell response: expected Cache-Control no-store, got %q", got)
-	}
-
-	rec = httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/app.js", nil))
-	if got := rec.Header().Get("Cache-Control"); got == "no-store" {
-		t.Fatalf("static asset response: did not expect Cache-Control no-store, got %q", got)
-	}
-}
