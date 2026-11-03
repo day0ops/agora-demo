@@ -108,11 +108,8 @@ describe("Shop", () => {
     ).toBeInTheDocument();
   });
 
-  it("redirects to /account/login instead of placing a bid when logged out", async () => {
+  it("redirects to /account/login when logged out", async () => {
     vi.spyOn(api, "listListings").mockResolvedValue([activeAuction]);
-    vi.spyOn(api, "bidHistory").mockResolvedValue([]);
-    const placeBidSpy = vi.spyOn(api, "placeBid");
-    const user = userEvent.setup();
 
     const originalLocation = window.location;
     // @ts-expect-error -- replacing window.location for assertion
@@ -121,15 +118,7 @@ describe("Shop", () => {
     window.location = { href: "" };
 
     renderShop(null);
-    await user.click(await screen.findByText("1965 Rolex Submariner"));
-    await user.type(
-      await screen.findByPlaceholderText("Bid amount ($)"),
-      "5300",
-    );
-    await user.click(screen.getByRole("button", { name: "Place Bid" }));
-
-    expect(window.location.href).toBe("/account/login");
-    expect(placeBidSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(window.location.href).toBe("/account/login"));
 
     // @ts-expect-error -- restoring the real window.location
     window.location = originalLocation;
@@ -211,12 +200,6 @@ describe("Shop", () => {
     expect(screen.getByText("buyer-1")).toBeInTheDocument();
   });
 
-  it("shows a login prompt in the orders panel when logged out", async () => {
-    vi.spyOn(api, "listListings").mockResolvedValue([]);
-    renderShop(null);
-    expect(await screen.findByText(/to see your orders/)).toBeInTheDocument();
-  });
-
   it("filters the grid by the search box", async () => {
     const secondListing: Listing = {
       ...activeAuction,
@@ -229,7 +212,12 @@ describe("Shop", () => {
       secondListing,
     ]);
     const user = userEvent.setup();
-    renderShop(null);
+    renderShop({
+      username: "demo-buyer",
+      groups: ["buyers"],
+      role: "buyers",
+      fixtureId: "buyer-1",
+    });
 
     await screen.findByText("1965 Rolex Submariner");
     await user.type(
