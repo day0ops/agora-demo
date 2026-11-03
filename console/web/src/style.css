@@ -230,7 +230,7 @@ a {
 }
 .topbar .brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   font-weight: 600;
   font-size: 17px;
