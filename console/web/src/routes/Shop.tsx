@@ -351,7 +351,7 @@ function OrdersPanel({
 }
 
 export function Shop() {
-  const { identity, loading } = useIdentity();
+  const { identity } = useIdentity();
   const [listings, setListings] = useState<Map<string, Listing>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -368,13 +368,6 @@ export function Shop() {
     window.location.href = "/account/login";
     return false;
   }
-
-  // The gateway only gates a hard navigation to /shop - client-side <Link>
-  // clicks from an already-loaded SPA never hit the server, so the redirect
-  // has to be mirrored here too.
-  useEffect(() => {
-    if (!loading && !identity) window.location.href = "/account/login";
-  }, [loading, identity]);
 
   const loadListings = useCallback(async () => {
     try {

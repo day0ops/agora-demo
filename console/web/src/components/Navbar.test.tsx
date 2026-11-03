@@ -30,6 +30,29 @@ describe("Navbar", () => {
     expect(screen.getByText("Shop")).toBeVisible();
   });
 
+  it("renders Shop as a real hard link, not a client-side route", async () => {
+    renderNavbar({
+      username: "demo-buyer",
+      groups: ["buyers"],
+      role: "buyers",
+      fixtureId: "buyer-1",
+    });
+    await screen.findByText("demo-buyer");
+
+    // Shop is gated server-side - a react-router <Link> would intercept the
+    // click and never hit the server, so it must stay a plain <a href>. Fake
+    // timers stop jsdom's deferred (unimplemented) navigation attempt for
+    // the real <a> click from firing - this test only cares whether the
+    // click's default action was prevented, not where it would have gone.
+    vi.useFakeTimers();
+    const shopClick = fireEvent.click(screen.getByText("Shop"));
+    expect(shopClick).toBe(true); // true means the event was NOT preventDefault()'d
+    vi.useRealTimers();
+
+    const sellClick = fireEvent.click(screen.getByText("Sell"));
+    expect(sellClick).toBe(false); // react-router's <Link> does preventDefault()
+  });
+
   it("shows the account menu and reveals Sell for a seller, but not Operator", async () => {
     renderNavbar({
       username: "demo-seller",
