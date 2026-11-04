@@ -46,17 +46,19 @@ func Seed(now time.Time) ([]Seller, []Buyer, []Listing, []Bid, []Order) {
 
 	// A spread of fresh, longer-running auctions (6-30 minutes out) -- good
 	// inventory for a live demo: enough runway to gather bidders, but short
-	// enough to actually watch close out.
+	// enough to actually watch close out. Three (clock, Morgan dollar, gown)
+	// run for 2 days instead, so there's always something biddable without
+	// needing to create a fresh listing first.
 	closingNecklace := now.Add(6 * time.Minute)
 	closingGatsby := now.Add(7 * time.Minute)
-	closingMorganDollar := now.Add(8 * time.Minute)
+	closingMorganDollar := now.Add(48 * time.Hour)
 	closingBordeaux := now.Add(10 * time.Minute)
 	closingLeica := now.Add(12 * time.Minute)
 	closingViolin := now.Add(15 * time.Minute)
-	closingGown := now.Add(18 * time.Minute)
+	closingGown := now.Add(48 * time.Hour)
 	closingRing := now.Add(20 * time.Minute)
 	closingPennyBlack := now.Add(25 * time.Minute)
-	closingClock := now.Add(30 * time.Minute)
+	closingClock := now.Add(48 * time.Hour)
 
 	listings := []Listing{
 		{
